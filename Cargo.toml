@@ -1,0 +1,19 @@
+[package]
+name = "optrand_pvss"
+version = "0.1.0"
+authors = ["Dimitris Papachristoudis"]
+edition = "2018"
+
+[dependencies]
+ark-ff = { version = "^0.2.0", features = [ "std" ] }
+ark-ec = { version = "^0.2.0", features = [ "std" ] }
+ark-poly = { version = "^0.2.0", features = [ "std" ] }
+ark-serialize = { version = "^0.2.0", features = [ "std" ] }
+ark-std = { version = "^0.2.0", features = [ "std" ] }
+ark-bls12-381 = { version = "^0.2.0", features = [ "std" ] }
+#ark-secp256k1 = { version = "^0.2.0", features = [ "std" ] }
+thiserror = "1.0.19"
+rand = "0.7.3"
+rand_chacha = { version = "0.2.1" }
+once_cell = "^1.7"
+blake2s_simd = "0.5.10"
