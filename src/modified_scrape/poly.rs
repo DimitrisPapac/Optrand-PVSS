@@ -12,7 +12,7 @@ use std::str::FromStr;
 use ark_std::fmt::Debug;
 
 // The scalar field of the pairing groups
-pub type Scalar<E> = <E as PairingEngine>::Fr;   // undesirable since it binds us to a pairing engine
+pub type Scalar<E> = <E as PairingEngine>::Fr;   // somewhat undesirable because it binds us to a pairing engine
 
 // A polynomial with the various coefficients in the Scalar Group
 pub type Polynomial<E> = DensePolynomial<Scalar<E>>;
