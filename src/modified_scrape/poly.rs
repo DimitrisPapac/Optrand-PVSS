@@ -1,18 +1,24 @@
 use ark_poly::polynomial::univariate::DensePolynomial;
-use ark_ff::{One, Field, Zero, biginteger::BigInteger256};   // PrimeField
+use ark_ff::{Field, Zero, One};   // biginteger::BigInteger256, BigInteger, PrimeField
 use rand::Rng;
 //use std::{fmt::Debug, ops::Neg};
 use ark_ec::{PairingEngine};   // AffineCurve
-use ark_poly::{Polynomial as Poly, UVPolynomial};
+use ark_poly::{UVPolynomial, Polynomial as Poly};
+
+
 use super::errors::PVSSError;
 
-use std::convert::TryInto;
+
+use ark_std::ops::{Add, Mul};
+
+
+//use std::convert::TryInto;
 use std::str::FromStr;
 
 use ark_std::fmt::Debug;
 
 // The scalar field of the pairing groups
-pub type Scalar<E> = <E as PairingEngine>::Fr;   // somewhat undesirable because it binds us to a pairing engine
+pub type Scalar<E> = <E as PairingEngine>::Fr;   // undesirable since it binds us to a pairing engine
 
 // A polynomial with the various coefficients in the Scalar Group
 pub type Polynomial<E> = DensePolynomial<Scalar<E>>;
@@ -23,29 +29,34 @@ pub type Polynomial<E> = DensePolynomial<Scalar<E>>;
 pub fn ensure_degree<E: PairingEngine,
                      R: Rng>(rng: &mut R,
                              evaluations: &Vec<Scalar<E>>,
-                             degree: usize) -> bool
-where E::Fr: From<usize>, <<E as PairingEngine>::Fr as FromStr>::Err: Debug {
-    let num = evaluations.len();
+                             degree: u64) -> bool
+where
+	E::Fr: From<u64>,
+	<<E as PairingEngine>::Fr as FromStr>::Err: Debug,
+	<E as PairingEngine>::Fr: Add<Output = <E as PairingEngine>::Fr>,
+	<E as PairingEngine>::Fr: Mul<Output = <E as PairingEngine>::Fr>,
+{
+    let num = evaluations.len() as u64;
 
     if num < degree {
         return false;
     }
 
     // sample a random polynomial of appropriate degree
-    let poly = Polynomial::<E>::rand(num-degree-2, rng);
+    let poly = Polynomial::<E>::rand((num-degree-2) as usize, rng);
 
     let mut v = Scalar::<E>::zero();
 
     for i in 1..num+1 {
-        let scalar_i = Scalar::<E>::from_str(&i.to_string()).unwrap(); // Scalar::<E>::from_str(&i.to_string());
+        let scalar_i = Scalar::<E>::from_str(&i.to_string()).unwrap();
 	let mut cperp = poly.evaluate(&scalar_i);
 	for j in 1..num+1 {
-            let scalar_j = Scalar::<E>::from_str(&j.to_string()).unwrap(); // Scalar::<E>::from_str(&j.to_string());
+            let scalar_j = Scalar::<E>::from_str(&j.to_string()).unwrap();
             if i != j {
                 cperp = cperp * ((scalar_i - scalar_j).inverse().unwrap());
             }
         }
-        v = v + (cperp * evaluations[i-1]);
+	v = v + cperp * evaluations[(i-1) as usize];
     }
 
     v == Scalar::<E>::zero()
@@ -53,57 +64,61 @@ where E::Fr: From<usize>, <<E as PairingEngine>::Fr as FromStr>::Err: Debug {
 
 
 
-/*
-
 // 
-pub fn lagrange_interpolation_simple<E: PairingEngine>(evals: &Vec<Scalar<E>>, degree: u64) -> Result<Scalar<E>, PVSSError<E>> 
-where <E as PairingEngine>::Fr: From<usize> {
-    if evals.len() < degree+1 {
+pub fn lagrange_interpolation_simple<E: PairingEngine>(evals: &Vec<Scalar<E>>,
+						       degree: u64) -> Result<Scalar<E>, PVSSError<E>> 
+where <E as PairingEngine>::Fr: From<usize>
+{
+    if evals.len() < (degree + 1) as usize {
         return Err(PVSSError::EvaluationsInsufficientError);
     }
 
     let mut sum = Scalar::<E>::zero();
     
     for j in 0..degree+1 {
-        let x_j = Scalar::<E>::from(j as u64 + 1);
+        let x_j = Scalar::<E>::from((j + 1) as usize);
 	let mut prod = Scalar::<E>::one();
 	for k in 0..degree+1 {
 	    if j != k {
-	        let x_k = Scalar::<E>::from(k as u64 + 1);
+	        let x_k = Scalar::<E>::from((k + 1) as usize);
 	        prod = x_k * (x_k - x_j).inverse().unwrap();   //prod * (x_k * ((x_k - x_j).inverse().unwrap()));
 	    }
 	}
-	sum += prod * evals[j];
+	sum += prod * evals[j as usize];
     }
 
     Ok(sum)
 }
 
+
+
 // 
-pub fn lagrange_interpolation<E: PairingEngine>(evals: &Vec<Scalar<E>>, points: &Vec<Scalar<E>>, degree: usize) -> Result<Scalar<E>, PVSSError<E>> 
-where <E as PairingEngine>::Fr: From<usize> {
-    if evals.len() < degree+1 {
+pub fn lagrange_interpolation<E: PairingEngine>(evals: &Vec<Scalar<E>>,
+						points: &Vec<Scalar<E>>,
+						degree: u64) -> Result<Scalar<E>, PVSSError<E>> 
+where <E as PairingEngine>::Fr: From<usize>
+{
+    if evals.len() < (degree + 1) as usize {
         return Err(PVSSError::EvaluationsInsufficientError);
     }
 
     let mut sum = Scalar::<E>::zero();
     
     for j in 0..degree+1 {
-        let x_j = points[j];
+        let x_j = points[j as usize];
 	let mut prod = Scalar::<E>::one();
 	for k in 0..degree+1 {
 	    if j != k {
-	        let x_k = points[k];
+	        let x_k = points[k as usize];
 	        prod *= x_k * (x_k - x_j).inverse().unwrap();
 	    }
 	}
-	sum += prod * evals[j];
+	sum += prod * evals[j as usize];
     }
 
     Ok(sum)
 }
 
-*/
 
 /* Unit tests: */
 
@@ -126,7 +141,8 @@ mod test {
     //use crate::signature::{schnorr::srs::SRS as DLKSRS, utils::tests::check_serialization};
     //use crate::nizk::{dlk::DLKProof, scheme::NIZKProof};
 
-    use ark_ff::BigInteger256;
+    //use ark_ff::BigInteger256;
+
     use ark_ff::One;
 
     use crate::modified_scrape::{poly::{Scalar, Polynomial, ensure_degree}};
@@ -171,18 +187,13 @@ mod test {
     }
 
 */
+
     #[test]
     fn test_ensure_degree() {
-        let rng = &mut thread_rng();
-
-	let t = 3;
-	//let n = 10;
-	let poly = Polynomial::<E>::rand(t, rng);   // generate a random polynomial of degree t
-
-	let evals = vec![Scalar::<E>::rand(rng); t];
-	//let evals2 = vec![Scalar::<E>::rand(rng); t-1];
-
-	assert_eq!(ensure_degree::<E, R>(rng, &evals, t), true);
+	let rng = &mut thread_rng();
+        let t = 3u64;
+        let evals = vec![Scalar::<E>::rand(rng); (t+4) as usize];
+        assert_eq!(ensure_degree::<E, _>(rng, &evals, t), true);
     }
 
 
