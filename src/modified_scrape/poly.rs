@@ -1,21 +1,14 @@
-use ark_poly::polynomial::univariate::DensePolynomial;
-use ark_ff::{Field, Zero, One};   // biginteger::BigInteger256, BigInteger, PrimeField
-use rand::Rng;
-//use std::{fmt::Debug, ops::Neg};
-use ark_ec::{PairingEngine};   // AffineCurve
-use ark_poly::{UVPolynomial, Polynomial as Poly};
-
-
 use super::errors::PVSSError;
 
-
+use ark_poly::polynomial::univariate::DensePolynomial;
+use ark_ff::{Field, Zero, One};
+use ark_ec::{PairingEngine};   // AffineCurve
+use ark_poly::{UVPolynomial, Polynomial as Poly};
+use ark_std::fmt::Debug;
 use ark_std::ops::{Add, Mul};
 
-
-//use std::convert::TryInto;
 use std::str::FromStr;
-
-use ark_std::fmt::Debug;
+use rand::Rng;
 
 // The scalar field of the pairing groups
 pub type Scalar<E> = <E as PairingEngine>::Fr;   // undesirable since it binds us to a pairing engine
