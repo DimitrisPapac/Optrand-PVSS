@@ -7,7 +7,9 @@ use thiserror::Error;
 #[derive(Error, Debug)]
 pub enum PVSSError<E: PairingEngine> {
     #[error("Insufficient evaluations")]
-    EvaluationsInsufficientError,
+    InsufficientEvaluationsError,
+    #[error("Different number of points and evaluations")]
+    DifferentPointsEvalsError,
 
     #[error("Ratio incorrect")]
     RatioIncorrect,
