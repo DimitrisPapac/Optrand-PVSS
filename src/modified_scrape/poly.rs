@@ -24,7 +24,7 @@ pub fn ensure_degree<E: PairingEngine,
                              evaluations: &Vec<Scalar<E>>,
                              degree: u64) -> bool
 where
-	E::Fr: From<u64>,
+	<E as PairingEngine>::Fr: From<u64>,
 	<<E as PairingEngine>::Fr as FromStr>::Err: Debug,
 	<E as PairingEngine>::Fr: Add<Output = <E as PairingEngine>::Fr>,
 	<E as PairingEngine>::Fr: Mul<Output = <E as PairingEngine>::Fr>,
@@ -49,7 +49,7 @@ where
                 cperp = cperp * ((scalar_i - scalar_j).inverse().unwrap());
             }
         }
-	v = v + cperp * evaluations[(i-1) as usize];
+	v += cperp * evaluations[(i-1) as usize];
     }
 
     v == Scalar::<E>::zero()
@@ -60,7 +60,8 @@ where
 // 
 pub fn lagrange_interpolation_simple<E: PairingEngine>(evals: &Vec<Scalar<E>>,
 						       degree: u64) -> Result<Scalar<E>, PVSSError<E>> 
-where <E as PairingEngine>::Fr: From<usize>
+where
+	<E as PairingEngine>::Fr: From<u64>
 {
     if evals.len() < (degree + 1) as usize {
         return Err(PVSSError::EvaluationsInsufficientError);
@@ -69,12 +70,12 @@ where <E as PairingEngine>::Fr: From<usize>
     let mut sum = Scalar::<E>::zero();
     
     for j in 0..degree+1 {
-        let x_j = Scalar::<E>::from((j + 1) as usize);
+        let x_j = Scalar::<E>::from(j + 1);
 	let mut prod = Scalar::<E>::one();
 	for k in 0..degree+1 {
 	    if j != k {
-	        let x_k = Scalar::<E>::from((k + 1) as usize);
-	        prod = x_k * (x_k - x_j).inverse().unwrap();   //prod * (x_k * ((x_k - x_j).inverse().unwrap()));
+	        let x_k = Scalar::<E>::from(k + 1);
+	        prod *= x_k * (x_k - x_j).inverse().unwrap();   //prod = prod * (x_k * ((x_k - x_j).inverse().unwrap()));
 	    }
 	}
 	sum += prod * evals[j as usize];
@@ -89,7 +90,7 @@ where <E as PairingEngine>::Fr: From<usize>
 pub fn lagrange_interpolation<E: PairingEngine>(evals: &Vec<Scalar<E>>,
 						points: &Vec<Scalar<E>>,
 						degree: u64) -> Result<Scalar<E>, PVSSError<E>> 
-where <E as PairingEngine>::Fr: From<usize>
+where <E as PairingEngine>::Fr: From<u64>
 {
     if evals.len() < (degree + 1) as usize {
         return Err(PVSSError::EvaluationsInsufficientError);
@@ -122,7 +123,7 @@ mod test {
     //use ark_ec::{AffineCurve, PairingEngine, ProjectiveCurve};
 
     use rand::thread_rng;
-    //use ark_ff::{One, PrimeField, Zero};   //UniformRand
+    //use ark_ff::{One, PrimeField, Zero};
     use crate::ark_std::UniformRand;
     use ark_poly::UVPolynomial;
     //use ark_poly::{polynomial::univariate::DensePolynomial}; //UVPolynomial
@@ -138,13 +139,15 @@ mod test {
 
     use ark_ff::One;
 
-    use crate::modified_scrape::{poly::{Scalar, Polynomial, ensure_degree}};
+    use crate::modified_scrape::{poly::{Scalar, Polynomial, ensure_degree, lagrange_interpolation_simple, lagrange_interpolation}};
 
 
     use std::str::FromStr;
 
     // cargo test -- --nocapture
 
+
+    /*
     #[test]
     fn test_big_int() {
 	let x: usize = 1;
@@ -154,8 +157,8 @@ mod test {
 
 	assert_eq!(y.unwrap(), Scalar::<E>::one());
     }
+    */
 
-/*
 
     #[test]
     fn test_poly() {
@@ -179,7 +182,6 @@ mod test {
 	assert_eq!(2+2, 4);
     }
 
-*/
 
     #[test]
     fn test_ensure_degree() {
@@ -189,5 +191,27 @@ mod test {
         assert_eq!(ensure_degree::<E, _>(rng, &evals, t), true);
     }
 
+
+    #[test]
+    #[should_panic]
+    fn test_lagrange_interpolation_simple_insufficient_evals() {
+	let rng = &mut thread_rng();
+        let t = 3u64;
+        let evals = vec![Scalar::<E>::rand(rng); (t-1) as usize];
+
+	let sum = lagrange_interpolation_simple::<E>(&evals, t).unwrap();
+    }
+
+
+    #[test]
+    fn test_lagrange_interpolation_simple() {
+	let rng = &mut thread_rng();
+        let t = 3u64;
+        let evals = vec![Scalar::<E>::rand(rng); (t+1) as usize];
+
+	let sum = lagrange_interpolation_simple::<E>(&evals, t).unwrap();
+
+	// ...
+    }
 
 }
