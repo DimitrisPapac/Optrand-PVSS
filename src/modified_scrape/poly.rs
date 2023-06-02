@@ -199,7 +199,7 @@ mod test {
         let t = 3u64;
         let evals = vec![Scalar::<E>::rand(rng); (t-1) as usize];
 
-	let sum = lagrange_interpolation_simple::<E>(&evals, t).unwrap();
+	_ = lagrange_interpolation_simple::<E>(&evals, t).unwrap();
     }
 
 
