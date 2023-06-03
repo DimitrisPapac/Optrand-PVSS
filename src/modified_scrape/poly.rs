@@ -4,10 +4,8 @@ use ark_poly::polynomial::univariate::DensePolynomial;
 use ark_ff::{Field, Zero, One};
 use ark_ec::{PairingEngine};   // AffineCurve
 use ark_poly::{UVPolynomial, Polynomial as Poly};
-use ark_std::fmt::Debug;
 use ark_std::ops::{Add, Mul};
 
-use std::str::FromStr;
 use rand::Rng;
 
 // The scalar field of the pairing groups
@@ -25,7 +23,6 @@ pub fn ensure_degree<E: PairingEngine,
                              degree: u64) -> bool
 where
 	<E as PairingEngine>::Fr: From<u64>,
-	<<E as PairingEngine>::Fr as FromStr>::Err: Debug,
 	<E as PairingEngine>::Fr: Add<Output = <E as PairingEngine>::Fr>,
 	<E as PairingEngine>::Fr: Mul<Output = <E as PairingEngine>::Fr>,
 {
@@ -41,10 +38,10 @@ where
     let mut v = Scalar::<E>::zero();
 
     for i in 1..num+1 {
-        let scalar_i = Scalar::<E>::from_str(&i.to_string()).unwrap();       // simplify if possible
+        let scalar_i = Scalar::<E>::from(i);
 	let mut cperp = poly.evaluate(&scalar_i);
 	for j in 1..num+1 {
-            let scalar_j = Scalar::<E>::from_str(&j.to_string()).unwrap();   // simplify if possible
+            let scalar_j = Scalar::<E>::from(j);
             if i != j {
                 cperp *= (scalar_i - scalar_j).inverse().unwrap();
             }
@@ -129,7 +126,6 @@ where <E as PairingEngine>::Fr: From<u64>
     }
     */
 
-    // Return the result
     Ok(sum)
 }
 
