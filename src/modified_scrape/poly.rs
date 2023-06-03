@@ -140,7 +140,7 @@ where <E as PairingEngine>::Fr: From<u64>
 
 #[cfg(test)]
 mod test {
-    use rand::thread_rng;
+    use rand::{Rng, thread_rng};
     use crate::ark_std::UniformRand;
     use ark_poly::UVPolynomial;
     use ark_poly::{Polynomial as Poly};
@@ -154,19 +154,24 @@ mod test {
     // cargo test -- --nocapture
 
 
+    const MIN_DEGREE: usize = 3;
+    const MAX_DEGREE: usize = 100;
+
+
     #[test]
-    fn test_poly() {
+    fn test_sample_poly() {
         let rng = &mut thread_rng();
+	let deg = rng.gen_range(MIN_DEGREE, MAX_DEGREE);
 
 	// generate a random polynomial
-	let p = Polynomial::<E>::rand(3, rng);
-	println!("Sampled polynomial:\n {:?}", p);
+	let p = Polynomial::<E>::rand(deg, rng);
+	// println!("Sampled polynomial:\n {:?}", p);
 
 	// retrieve its free term
-	println!("Its free term is: {:?}", p.coeffs[0]);
+	// println!("Its free term is: {:?}", p.coeffs[0]);
 
 	// evaluate polynomial at some given point
-	//println!("0 * p(3) = {:?}", Scalar::<E>::from(0 as u64) * p.evaluate(&Scalar::<E>::from(3 as u64)));
+	println!("0 * p(3) = {:?}", Scalar::<E>::from(0u64) * p.evaluate(&Scalar::<E>::from(3u64)));
 
 	assert_eq!(2+2, 4);
     }
@@ -175,18 +180,20 @@ mod test {
     #[test]
     fn test_ensure_degree() {
 	let rng = &mut thread_rng();
-        let t = 3u64;
-        let evals = vec![Scalar::<E>::rand(rng); (t+4) as usize];
-        assert_eq!(ensure_degree::<E, _>(rng, &evals, t), true);
+        let deg = rng.gen_range(MIN_DEGREE, MAX_DEGREE) as u64;
+
+        let evals = vec![Scalar::<E>::rand(rng); (deg+4) as usize];
+        assert_eq!(ensure_degree::<E, _>(rng, &evals, deg), true);
     }
 
 
     #[test]
     fn test_ensure_degree_insufficient_evals() {
 	let rng = &mut thread_rng();
-        let t = 3u64;
-        let evals = vec![Scalar::<E>::rand(rng); (t-1) as usize];
-        assert_eq!(ensure_degree::<E, _>(rng, &evals, t), false);
+        let deg = rng.gen_range(MIN_DEGREE, MAX_DEGREE) as u64;
+
+        let evals = vec![Scalar::<E>::rand(rng); (deg-1) as usize];
+        assert_eq!(ensure_degree::<E, _>(rng, &evals, deg), false);
     }
 
 
@@ -194,17 +201,18 @@ mod test {
     #[should_panic]
     fn test_lagrange_interpolation_simple_insufficient_evals() {
 	let rng = &mut thread_rng();
-        let t = 3u64;
-        let evals = vec![Scalar::<E>::rand(rng); (t-1) as usize];
+        let deg = rng.gen_range(MIN_DEGREE, MAX_DEGREE) as u64;
 
-	_ = lagrange_interpolation_simple::<E>(&evals, t).unwrap();
+        let evals = vec![Scalar::<E>::rand(rng); (deg-1) as usize];
+
+	_ = lagrange_interpolation_simple::<E>(&evals, deg).unwrap();
     }
 
 
     #[test]
     fn test_lagrange_interpolation_simple() {
 	let rng = &mut thread_rng();
-        let deg = 3u64;
+        let deg = rng.gen_range(MIN_DEGREE, MAX_DEGREE) as u64;
 
 	let p = Polynomial::<E>::rand(deg as usize, rng);
 	let secret = p.coeffs[0];
@@ -221,11 +229,12 @@ mod test {
     #[should_panic]
     fn test_lagrange_interpolation_insufficient_evals() {
 	let rng = &mut thread_rng();
-        let t = 3u64;
-        let evals = vec![Scalar::<E>::rand(rng); (t-1) as usize];
-	let points = vec![Scalar::<E>::rand(rng); (t-1) as usize];
+        let deg = rng.gen_range(MIN_DEGREE, MAX_DEGREE) as u64;
 
-	_ = lagrange_interpolation::<E>(&evals, &points, t).unwrap();
+        let evals = vec![Scalar::<E>::rand(rng); (deg-1) as usize];
+	let points = vec![Scalar::<E>::rand(rng); (deg-1) as usize];
+
+	_ = lagrange_interpolation::<E>(&evals, &points, deg).unwrap();
     }
 
 
@@ -233,18 +242,19 @@ mod test {
     #[should_panic]
     fn test_lagrange_interpolation_different_points_evals() {
 	let rng = &mut thread_rng();
-        let t = 3u64;
-        let evals = vec![Scalar::<E>::rand(rng); (t+1) as usize];
-	let points = vec![Scalar::<E>::rand(rng); (t+2) as usize];
+        let deg = rng.gen_range(MIN_DEGREE, MAX_DEGREE) as u64;
 
-	_ = lagrange_interpolation::<E>(&evals, &points, t).unwrap();
+        let evals = vec![Scalar::<E>::rand(rng); (deg+1) as usize];
+	let points = vec![Scalar::<E>::rand(rng); (deg+2) as usize];
+
+	_ = lagrange_interpolation::<E>(&evals, &points, deg).unwrap();
     }
 
 
     #[test]
     fn test_lagrange_interpolation() {
 	let rng = &mut thread_rng();
-        let deg = 3u64;
+        let deg = rng.gen_range(MIN_DEGREE, MAX_DEGREE) as u64;
 
 	let p = Polynomial::<E>::rand(deg as usize, rng);
 	let secret = p.coeffs[0];
