@@ -1,4 +1,4 @@
 pub mod scheme;
 pub mod dlk;
-//pub mod decomp;
+pub mod dleq;
 pub mod utils;
