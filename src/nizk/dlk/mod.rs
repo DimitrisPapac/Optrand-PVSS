@@ -1,9 +1,14 @@
-use crate::signature::schnorr::srs::SRS;   // Same SRS as Schnorr's signature scheme
+//use crate::signature::schnorr::srs::SRS;   // Same SRS as Schnorr's signature scheme
+use super::dlk::srs::SRS;
 use crate::nizk::{scheme::NIZKProof, utils::{errors::NIZKError, hash::hash_to_field}};
+
 use ark_ec::{ProjectiveCurve, AffineCurve};
 use ark_ff::{PrimeField, UniformRand};
-use rand::Rng;
+
 use std::fmt::Debug;
+use rand::Rng;
+
+pub mod srs;
 
 
 const PERSONALIZATION: &[u8] = b"DLKNIZK";   // persona for the DLK NIZK proof system
@@ -20,6 +25,7 @@ impl<C: AffineCurve> NIZKProof for DLKProof<C> {
 
     type SRS = SRS<C>;                                  // SRS for Schnorr is just a generator (i.e., an EC point)
     type Witness = C::ScalarField;                      // witnessess are scalars from the field underlying C
+    type Challenge = C::ScalarField;                    // challenges are scalars from the field underlying C
     type Statement = C;                                 // public statements are elliptic curve points
     type Proof = (C, C::ScalarField, C::ScalarField);   // proof format: (commitment to nonce, challenge, response)
 
@@ -53,7 +59,7 @@ impl<C: AffineCurve> NIZKProof for DLKProof<C> {
     ) -> Result<Self::Proof, NIZKError> {
 
         // Sample a random nonce
-        let r = C::ScalarField::rand(rng);
+        let r = Self::Witness::rand(rng);
 
         // Compute commitment to nonce as: g_r := r * g
         let g_r = self.srs.g_public_key.mul(r.into_repr()).into_affine();
@@ -67,7 +73,7 @@ impl<C: AffineCurve> NIZKProof for DLKProof<C> {
         g_r.serialize(&mut g_r_bytes)?;
 
         // Compute the "challenge" part of the proof
-        let hashed_message = hash_to_field::<C::ScalarField>(
+        let hashed_message = hash_to_field::<Self::Challenge>(
             PERSONALIZATION, &[&g_bytes[..], &g_r_bytes].concat()
         )?;
 
@@ -95,7 +101,7 @@ impl<C: AffineCurve> NIZKProof for DLKProof<C> {
         proof.0.serialize(&mut g_r_bytes)?;
 
 	// compute the challenge corresponding to what was provided
-        let hashed_message = hash_to_field::<C::ScalarField>(
+        let hashed_message = hash_to_field::<Self::Challenge>(
             PERSONALIZATION, &[&g_bytes[..], &g_r_bytes].concat()
         )?;
 
@@ -120,14 +126,14 @@ impl<C: AffineCurve> NIZKProof for DLKProof<C> {
 
 #[cfg(test)]
 mod test {
+    use crate::signature::{utils::tests::check_serialization};   // schnorr::srs::SRS
+    use crate::nizk::{dlk::{DLKProof, srs::SRS}, scheme::NIZKProof};
+
+    use ark_ff::{PrimeField, UniformRand};
     use ark_bls12_381::{G1Affine, G2Affine};
     use ark_ec::{AffineCurve, ProjectiveCurve};
 
-    use crate::signature::{schnorr::srs::SRS, utils::tests::check_serialization};
-    use crate::nizk::{dlk::DLKProof, scheme::NIZKProof};
-
     use rand::thread_rng;
-    use ark_ff::{PrimeField, UniformRand};
 
     #[test]
     fn test_simple_nizk_g1() {
@@ -264,7 +270,7 @@ mod test {
 	let malformed_proof = (g_r, c, new_response);
 
         dlk
-            .verify(&pair.1, &malformed_proof)
+	    .verify(&pair.1, &malformed_proof)
             .unwrap();
     }
 
