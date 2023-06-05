@@ -11,6 +11,8 @@ pub enum NIZKError {
     DLKParseError,
     #[error("Failed verifying DLK proof")]
     DLKVerify,
+    #[error("Failed verifying DLEQ proof")]
+    DLEQVerify,
     #[error("SerializationError: {0}")]
     SerializationError(#[from] SerializationError),
 }
