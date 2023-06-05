@@ -7,6 +7,7 @@ use std::fmt::Debug;
 pub trait NIZKProof: Debug + Clone + PartialEq + Sized {
     type SRS: Clone;                                                     // proof system's associated SRS
     type Witness;                                                        // type for secret witnesses
+    type Challenge;							 // type for challenges/challenge space
     type Statement: Clone + CanonicalSerialize + CanonicalDeserialize;   // type for public statements
     type Proof: Clone + CanonicalSerialize + CanonicalDeserialize;       // type for statements
 
