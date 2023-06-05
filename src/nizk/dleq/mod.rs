@@ -14,11 +14,6 @@ pub mod srs;
 const PERSONALIZATION: &[u8] = b"DLEQNIZK";   // persona for the DLEQ NIZK proof system
 
 
-
-// IMPORTANT: MUST SOMEHOW CONSTRAINT C1 AND C2 S.T.:
-// C1::ScalarField == C2::ScalarField
-
-
 // DLEQProof type wraps around the SRS and represents the scheme's
 // system-wide parameters.
 #[derive(Clone, Debug, PartialEq)]
