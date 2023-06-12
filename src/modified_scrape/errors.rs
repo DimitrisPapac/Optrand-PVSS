@@ -10,6 +10,25 @@ pub enum PVSSError<E: PairingEngine> {
     InsufficientEvaluationsError,
     #[error("Different number of points and evaluations")]
     DifferentPointsEvalsError,
+    #[error("Could not generate decomposition proof")]
+    DecompGenerationError,
+    #[error("Invalid participant ID: {0}")]
+    InvalidParticipantId(usize),
+    #[error("Mismatch between provided encryptions ({0} given), commitments ({1} given), and replicas ({2} given)")]
+    MismatchedCommitsEncryptionsReplicasError(usize, usize, usize),
+    #[error("Degree check failed. Dual code condition does not hold")]
+    DualCodeError,
+    #[error("gs check failed")]
+    GSCheckError,
+    #[error("Empty shares vector provided")]
+    EmptySharesVectorError,
+    #[error("Insufficient elements in the identities vector")]
+    InsufficientIdsError,
+    #[error("Insufficient commitments in PVSS share. Found: {0}, Expected: {1}")]
+    InsufficientCommitsInShareError(usize, usize),
+    #[error("Insufficient encryptions in PVSS share. Found: {0}, Expected: {1}")]
+    InsufficientEncryptionsInShareError(usize, usize),
+
 
     #[error("Ratio incorrect")]
     RatioIncorrect,
@@ -23,8 +42,6 @@ pub enum PVSSError<E: PairingEngine> {
     SignatureError(#[from] SignatureError),
     #[error("Serialization error: {0}")]
     SerializationError(#[from] SerializationError),
-    #[error("Invalid participant ID: {0}")]
-    InvalidParticipantId(usize),
     #[error("Transcripts have different degree or number of participants: self.degree={0}, other.degree={1}, self.num_participants={2}, self.num_participants={3}")]
     TranscriptDifferentConfig(usize, usize, usize, usize),
     #[error("Transcripts have different commitments")]
