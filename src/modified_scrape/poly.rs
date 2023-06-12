@@ -1,35 +1,36 @@
 use super::errors::PVSSError;
 
-use ark_poly::polynomial::univariate::DensePolynomial;
 use ark_ff::{Field, Zero, One};
-use ark_ec::{PairingEngine};   // AffineCurve
-use ark_poly::{UVPolynomial, Polynomial as Poly};
+use ark_ec::{PairingEngine};
+use ark_poly::{UVPolynomial, Polynomial as Poly, polynomial::univariate::DensePolynomial};
 use ark_std::ops::{Add, Mul};
 
 use rand::Rng;
 
 // The scalar field of the pairing groups
-pub type Scalar<E> = <E as PairingEngine>::Fr;   // undesirable since it binds us to a pairing engine
+pub type Scalar<E> = <E as PairingEngine>::Fr;
 
 // A polynomial with the various coefficients in the Scalar Group
 pub type Polynomial<E> = DensePolynomial<Scalar<E>>;
 
 
 
-// 
-pub fn ensure_degree<E: PairingEngine,
-                     R: Rng>(rng: &mut R,
-                             evaluations: &Vec<Scalar<E>>,
-                             degree: u64) -> bool
+// Function for ensuring that the commitment vector evals is
+// also a commitment to a polynomial of specified degree.
+pub fn ensure_degree<E, R>(rng: &mut R,
+                           evaluations: &Vec<Scalar<E>>,
+                           degree: u64) -> Result<(), PVSSError<E>>
 where
-	<E as PairingEngine>::Fr: From<u64>,
-	<E as PairingEngine>::Fr: Add<Output = <E as PairingEngine>::Fr>,
-	<E as PairingEngine>::Fr: Mul<Output = <E as PairingEngine>::Fr>,
+	E: PairingEngine,
+	Scalar<E>: From<u64>,
+	Scalar<E>: Add<Output = Scalar<E>>,
+	Scalar<E>: Mul<Output = Scalar<E>>,
+	R: Rng
 {
     let num = evaluations.len() as u64;
 
     if num < degree {
-        return false;
+        return Err(PVSSError::InsufficientEvaluationsError);
     }
 
     // sample a random polynomial of appropriate degree
@@ -49,16 +50,22 @@ where
 	v += cperp * evaluations[(i-1) as usize];
     }
 
-    v == Scalar::<E>::zero()
+    if v != Scalar::<E>::zero() {
+	return Err(PVSSError::DualCodeError);
+    }
+
+    Ok(())
+
 }
 
 
 
 // 
-pub fn lagrange_interpolation_simple<E: PairingEngine>(evals: &Vec<Scalar<E>>,
-						       degree: u64) -> Result<Scalar<E>, PVSSError<E>> 
+pub fn lagrange_interpolation_simple<E>(evals: &Vec<Scalar<E>>,
+					degree: u64) -> Result<Scalar<E>, PVSSError<E>> 
 where
-	<E as PairingEngine>::Fr: From<u64>
+	E: PairingEngine,
+	Scalar<E>: From<u64>
 {
     if evals.len() < (degree + 1) as usize {
         return Err(PVSSError::InsufficientEvaluationsError);
@@ -68,12 +75,11 @@ where
     
     for j in 0..degree+1 {
         let x_j = Scalar::<E>::from(j + 1);
-	// ell
 	let mut prod = Scalar::<E>::one();
 	for k in 0..degree+1 {
 	    if j != k {
 	        let x_k = Scalar::<E>::from(k + 1);
-	        prod *= x_k * (x_k - x_j).inverse().unwrap();   //prod = prod * (x_k * ((x_k - x_j).inverse().unwrap()));
+	        prod *= x_k * (x_k - x_j).inverse().unwrap();
 	    }
 	}
 	sum += prod * evals[j as usize];
@@ -85,10 +91,12 @@ where
 
 
 // 
-pub fn lagrange_interpolation<E: PairingEngine>(evals: &Vec<Scalar<E>>,
-						points: &Vec<Scalar<E>>,
-						degree: u64) -> Result<Scalar<E>, PVSSError<E>> 
-where <E as PairingEngine>::Fr: From<u64>
+pub fn lagrange_interpolation<E>(evals: &Vec<Scalar<E>>,
+				 points: &Vec<Scalar<E>>,
+				 degree: u64) -> Result<Scalar<E>, PVSSError<E>> 
+where
+	E: PairingEngine,
+	Scalar<E>: From<u64>
 {
     if evals.len() < (degree + 1) as usize {
         return Err(PVSSError::InsufficientEvaluationsError);
@@ -138,8 +146,7 @@ where <E as PairingEngine>::Fr: From<u64>
 mod test {
     use rand::{Rng, thread_rng};
     use crate::ark_std::UniformRand;
-    use ark_poly::UVPolynomial;
-    use ark_poly::{Polynomial as Poly};
+    use ark_poly::{UVPolynomial, Polynomial as Poly};
 
     use ark_bls12_381::{Bls12_381 as E};   // implements PairingEngine
 
@@ -160,14 +167,14 @@ mod test {
 	let deg = rng.gen_range(MIN_DEGREE, MAX_DEGREE);
 
 	// generate a random polynomial
-	let p = Polynomial::<E>::rand(deg, rng);
+	let _p = Polynomial::<E>::rand(deg, rng);
 	// println!("Sampled polynomial:\n {:?}", p);
 
 	// retrieve its free term
 	// println!("Its free term is: {:?}", p.coeffs[0]);
 
 	// evaluate polynomial at some given point
-	println!("0 * p(3) = {:?}", Scalar::<E>::from(0u64) * p.evaluate(&Scalar::<E>::from(3u64)));
+	// println!("0 * p(3) = {:?}", Scalar::<E>::from(0u64) * p.evaluate(&Scalar::<E>::from(3u64)));
 
 	assert_eq!(2+2, 4);
     }
@@ -179,17 +186,18 @@ mod test {
         let deg = rng.gen_range(MIN_DEGREE, MAX_DEGREE) as u64;
 
         let evals = vec![Scalar::<E>::rand(rng); (deg+4) as usize];
-        assert_eq!(ensure_degree::<E, _>(rng, &evals, deg), true);
+        assert_eq!(ensure_degree::<E, _>(rng, &evals, deg).unwrap(), ());
     }
 
 
     #[test]
+    #[should_panic]
     fn test_ensure_degree_insufficient_evals() {
 	let rng = &mut thread_rng();
         let deg = rng.gen_range(MIN_DEGREE, MAX_DEGREE) as u64;
 
         let evals = vec![Scalar::<E>::rand(rng); (deg-1) as usize];
-        assert_eq!(ensure_degree::<E, _>(rng, &evals, deg), false);
+        ensure_degree::<E, _>(rng, &evals, deg).unwrap();
     }
 
 
