@@ -41,6 +41,7 @@ impl<
     > Node<E, SPOK, SSIG>
 {
 
+    // Function for creating a new node in the PVSS sharing protocol.
     pub fn new(
         config: Config<E>,
         scheme_pok: SPOK,   // might be redundant
@@ -53,7 +54,7 @@ impl<
         let node = Node {
             aggregator: PVSSAggregator {
                 config,
-                scheme_pok,
+                scheme_pok,   // might be redundant
                 scheme_sig,
                 participants,
                 transcript: PVSSTranscript::empty(degree, num_participants),
@@ -72,20 +73,20 @@ impl<
 	let t = self.aggregator.config.degree;
 	let n = self.aggregator.config.num_participants;
 
-	// sample a random degree t polynomial
+	// Sample a random degree t polynomial
 	let poly = Polynomial::<E>::rand(t, rng);
 
-	// evaluate poly(j) for all j in {1, ..., n}
+	// Evaluate poly(j) for all j in {1, ..., n}
 	let mut evals = (1..n+1)
 	    .map(|j| poly.evaluate(&Scalar::<E>::from(j as u64)))
 	    .collect::<Vec<_>>();
 
-	// compute commitments for all nodes in {0, ..., n-1}
+	// Compute commitments for all nodes in {0, ..., n-1}
 	let mut comms = (0..n)
 	    .map(|j| config.srs.g2.mul(evals[j].into_repr()))
 	    .collect::<Vec<_>>();
 
-	// compute encryptions for all nodes in {0, ..., n-1}
+	// Compute encryptions for all nodes in {0, ..., n-1}
 	let mut encs = (0..n)
 	    .map::<Result<E::G2Affine, PVSSError<E>>, _>(|j| {
                 Ok(self
@@ -102,8 +103,7 @@ impl<
 	// Generate decomposition proof
 	let decomp_proof = vec![Decomp::<E>::generate(rng, &aggregator.config, &poly).unwrap()];
 
-	// PVSSShare is similar to Optrand's PVSSVec (Rust implementation):
-	// https://github.com/libdist-rs/optrand-rs/blob/main/crypto/src/pvss.rs
+	// Compose PVSS share
 	let pvss_share = PVSSShare {
             comms,
 	    encs,
@@ -111,13 +111,13 @@ impl<
 	    // sig_of_knowledge
         };
 
-	// generate my_secret
+	// Generate my_secret
         let my_secret = self
             .aggregator
             .config
             .srs
-            .h_g2
-            .mul(y_eval_i[self.dealer.participant.id].into_repr())
+            .g1
+            .mul(evals[self.dealer.participant.id].into_repr())
             .into_affine();
 
 	// Create PVSSShareSecrets
