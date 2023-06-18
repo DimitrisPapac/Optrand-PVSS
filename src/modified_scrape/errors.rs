@@ -14,7 +14,7 @@ pub enum PVSSError<E: PairingEngine> {
     DecompGenerationError,
     #[error("Invalid participant ID: {0}")]
     InvalidParticipantId(usize),
-    #[error("Mismatch between provided encryptions ({0} given), commitments ({1} given), and replicas ({2} given)")]
+    #[error("Mismatch between provided encryptions ({0} given), commitments ({1} given), and participants ({2} given)")]
     MismatchedCommitsEncryptionsReplicasError(usize, usize, usize),
     #[error("Degree check failed. Dual code condition does not hold")]
     DualCodeError,
