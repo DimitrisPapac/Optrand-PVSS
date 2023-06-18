@@ -7,7 +7,7 @@ pub mod participant;
 pub mod dealer;
 //pub mod aggregator;
 
-//pub mod pvss;
+pub mod pvss;
 pub mod decomp;
 //pub mod share;
 
