@@ -28,6 +28,14 @@ pub enum PVSSError<E: PairingEngine> {
     InsufficientCommitsInShareError(usize, usize),
     #[error("Insufficient encryptions in PVSS share. Found: {0}, Expected: {1}")]
     InsufficientEncryptionsInShareError(usize, usize),
+    #[error("Share's encryptions vector is empty")]
+    EmptyEncryptionsVectorError,
+    #[error("Mismatched commitment vector lengths. First has: {0}, Second has: {1}")]
+    MismatchedCommitmentsError(usize, usize),
+    #[error("Mismatched encryption vector lengths. First has: {0}, Second has: {1}")]
+    MismatchedEncryptionsError(usize, usize),
+    #[error("Mismatched commitment and encryption vector lengths within share. First has: {0}, Second has: {1}")]
+    MismatchedCommitmentsEncryptionsError(usize, usize),
 
 
     #[error("Ratio incorrect")]
