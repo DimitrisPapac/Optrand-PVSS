@@ -169,51 +169,37 @@ impl<
         rng: &mut R,
         share: PVSSAugmentedShare<E, SSIG>,
     ) -> Result<(), PVSSError<E>> {
+	// Retrieve participant's id from the share
 	let participant_id = share.participant_id;
 
-	
+	// Anonymous function for performing the decryption
+	match (|| -> Result<E::G2Affine, PVSSError<E>> {
+            self.aggregator.receive_share(rng, &share)?;   // ................
 
-
-	// ........
-
-	Ok(())
-    }
-
-
-/*
-    // Assumes that the participant id has been authenticated.
-    pub fn receive_share_and_decrypt<R: Rng>(
-        &mut self,
-        rng: &mut R,
-        share: DKGShare<E, SPOK, SSIG>,
-    ) -> Result<(), DKGError<E>> {
-        let participant_id = share.participant_id;
-
-        match (|| -> Result<E::G2Affine, DKGError<E>> {
-            self.aggregator.receive_share(rng, &share)?;
-
-            let secret = share.pvss_share.y_i[self.dealer.participant.id]
+	    // decryption occurs here
+            let secret = share.pvss_share.encs[self.dealer.participant.id]
                 .mul(self.dealer.private_key_sig.inverse().unwrap().into_repr())
                 .into_affine();
 
             Ok(secret)
         })() {
             Ok(secret) => {
-                self.dealer.accumulated_secret = self.dealer.accumulated_secret + secret;
+                self.dealer.accumulated_secret = self.dealer.accumulated_secret + secret;   // ?????
                 let participant = self
                     .aggregator
                     .participants
                     .get_mut(&participant_id)
-                    .ok_or(DKGError::<E>::InvalidParticipantId(participant_id))?;
+                    .ok_or(PVSSError::<E>::InvalidParticipantId(participant_id))?;
                 participant.state = ParticipantState::Verified;
             }
             Err(_) => {}
         };
 
-        Ok(())
+	Ok(())
     }
 
 
+/*
     // Assumes that the participant id has been authenticated.
     pub fn receive_transcript_and_decrypt<R: Rng>(
         &mut self,
@@ -239,4 +225,30 @@ impl<
         Ok(())
     }
 */
+
+
+    pub fn reconstruct(
+	&mut self,) {
+	
+    }
+
+/*
+inline beacon_t Context::reconstruct(const std::vector<decryption_t> &recon) const 
+{
+    assert(recon.size()>config.num_faults());
+    std::vector<Fr> points;
+    points.reserve(config.num_faults()+1);
+    std::vector<PK_Group> evals;
+    evals.reserve(config.num_faults()+1);
+    for(const auto& dec: recon) {
+        points.emplace_back(static_cast<long>(dec.origin+1));
+        evals.emplace_back(dec.dec);
+    }
+    auto point = lagrange_interpolation(config.num_faults(), evals, points);
+    // e(h^s, g')
+    auto beacon = libff::default_ec_pp::pairing(point, h2);
+    return beacon_t{point, beacon};
+}
+*/
+
 }
