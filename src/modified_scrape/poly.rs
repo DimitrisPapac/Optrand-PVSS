@@ -4,11 +4,9 @@ use ark_ff::{Field, Zero, One};
 use ark_ec::{PairingEngine};
 use ark_poly::{UVPolynomial, Polynomial as Poly, polynomial::univariate::DensePolynomial};
 use ark_std::ops::{Add, Mul};
+use crate::Scalar;
 
 use rand::Rng;
-
-// The scalar field of the pairing groups
-pub type Scalar<E> = <E as PairingEngine>::Fr;
 
 // A polynomial with the various coefficients in the Scalar Group
 pub type Polynomial<E> = DensePolynomial<Scalar<E>>;
