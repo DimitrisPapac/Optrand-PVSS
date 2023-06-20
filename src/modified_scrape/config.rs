@@ -7,10 +7,7 @@ use ark_ec::PairingEngine;
 
 #[derive(Clone)]
 pub struct Config<E: PairingEngine> {
-    pub srs: SRS<E>,        // the associated SRS
-    pub degree: usize,      // polynomial degree (t)
-
-
-    // Is this redundant???
-    pub num_replicas: usize,   // the total number of parties in the protocol
+    pub srs: SRS<E>,               // the associated SRS
+    pub degree: usize,             // polynomial degree (t)
+    pub num_participants: usize,   // the total number of participants in the protocol
 }
