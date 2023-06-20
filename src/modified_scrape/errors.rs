@@ -36,7 +36,10 @@ pub enum PVSSError<E: PairingEngine> {
     MismatchedEncryptionsError(usize, usize),
     #[error("Mismatched commitment and encryption vector lengths within share. First has: {0}, Second has: {1}")]
     MismatchedCommitmentsEncryptionsError(usize, usize),
-
+    #[error("Transcripts have different degree or number of participants: self.degree={0}, other.degree={1}, self.num_participants={2}, self.num_participants={3}")]
+    TranscriptDifferentConfig(usize, usize, usize, usize),
+    #[error("Transcripts have different commitments")]
+    TranscriptDifferentCommitments,
 
     #[error("Ratio incorrect")]
     RatioIncorrect,
@@ -50,8 +53,4 @@ pub enum PVSSError<E: PairingEngine> {
     SignatureError(#[from] SignatureError),
     #[error("Serialization error: {0}")]
     SerializationError(#[from] SerializationError),
-    #[error("Transcripts have different degree or number of participants: self.degree={0}, other.degree={1}, self.num_participants={2}, self.num_participants={3}")]
-    TranscriptDifferentConfig(usize, usize, usize, usize),
-    #[error("Transcripts have different commitments")]
-    TranscriptDifferentCommitments,
 }
