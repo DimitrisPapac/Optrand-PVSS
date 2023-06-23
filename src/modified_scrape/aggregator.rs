@@ -1,27 +1,25 @@
-/*
-use crate::{
-    dkg::{
-        config::Config,
-        errors::DKGError,
-        participant::Participant,
-        pvss::PVSSShare,
-        share::{message_from_c_i, DKGShare, DKGTranscript, DKGTranscriptParticipant},
-    },
-    signature::scheme::BatchVerifiableSignatureScheme,
-};
-*/
+use crate::modified_scrape::poly::{ensure_degree, lagrange_interpolation_simple};   // poly::Polynomial, lagrange_interpolation
+use crate::modified_scrape::errors::PVSSError;
+use crate::modified_scrape::pvss::PVSSShare;
+use crate::modified_scrape::share::{PVSSTranscript, PVSSTranscriptParticipant, PVSSAugmentedShare};
+use crate::modified_scrape::participant::Participant;
+use crate::signature::scheme::BatchVerifiableSignatureScheme;
+use crate::modified_scrape::decomp::{DecompProof, message_from_pi_i};
 
-use crate::modified_scrape::{poly::{Scalar, Polynomial, ensure_degree, lagrange_interpolation_simple, lagrange_interpolation}};
-
-use ark_ec::{msm::VariableBaseMSM, AffineCurve, PairingEngine, ProjectiveCurve};
-use ark_ff::{One, PrimeField, UniformRand, Zero};
-use ark_std::collections::BTreeMap;
-
-
-use rand::Rng;
-use std::ops::Neg;
+//use crate::modified_scrape::decomp::ProofGroup;
 
 use super::config::Config;
+use crate::Scalar;
+
+use ark_ec::{PairingEngine, ProjectiveCurve};   // msm::VariableBaseMSM, AffineCurve
+use ark_std::collections::BTreeMap;
+
+//use ark_ff::{One, PrimeField, UniformRand, Zero};
+
+use rand::Rng;
+//use std::ops::Neg;
+
+
 
 pub struct PVSSAggregator<
     E: PairingEngine,
@@ -40,28 +38,31 @@ pub struct PVSSAggregator<
 impl<
         E: PairingEngine,
         // SPOK: BatchVerifiableSignatureScheme<PublicKey = E::G1Affine, Secret = Scalar<E>>,
-        SSIG: BatchVerifiableSignatureScheme<PublicKey = E::G2Affine, Secret = Scalar<E>>,
+        SSIG: BatchVerifiableSignatureScheme<PublicKey = E::G2Affine, Secret = Scalar<E>>,   // NOTE: might want to switch to projective coordinates
     > PVSSAggregator<E, SSIG>   // <E, SPOK, SSIG>
 {
 
-    // Method for handling a received PVSSAugmentedShare instance.
+    // Method for handling a received an augmented PVSS share instance.
     pub fn receive_share<R: Rng>(
         &mut self,
         rng: &mut R,
         share: &PVSSAugmentedShare<E, SSIG>,
     ) -> Result<(), PVSSError<E>> {
-	// Verify augmented PVSS share
+	// Verify augmented PVSS share.
         self.share_verify(rng, share)?;
 
-	// 
+	// Q: What if we receive the same PVSS share instance twice in a row?
+	// Does its "weight" somehow factor in?
+
+	// Create a PVSS transcript from the info included in the augmented share.
         let transcript = PVSSTranscript {
             degree: self.config.degree,
             num_participants: self.participants.len(),
             contributions: vec![(
                 share.participant_id,
                 PVSSTranscriptParticipant {
-                    c_i: share.c_i,
-                    signature_on_c_i: share.signature_on_c_i.clone(),
+                    decomp_proof: share.decomp_proof.clone(),
+    		    signature_on_decomp: share.signature_on_decomp.clone(),   
                 },
             )]
             .into_iter()
@@ -76,14 +77,15 @@ impl<
     }
 
 
-/*
-
-    // TODO: REVISE
+    // Method for handling a received PVSSTranscript instance.
     pub fn receive_transcript<R: Rng>(
         &mut self,
         rng: &mut R,
-        transcript: &DKGTranscript<E, SPOK, SSIG>,
-    ) -> Result<(), DKGError<E>> {
+        transcript: &PVSSTranscript<E, SSIG>,
+    ) -> Result<(), PVSSError<E>> {
+
+	// Perform checks on the transcript analogous to Context::verify_aggregation
+
         let mut c = E::G1Projective::zero();
         let mut public_keys_sig = vec![];
         let mut messages_sig = vec![];
@@ -94,17 +96,20 @@ impl<
         let mut signatures_pok = vec![];
 
         for (participant_id, contribution) in transcript.contributions.iter() {
+	    // Retrieve participant's profile.
             let participant = self
                 .participants
                 .get(participant_id)
-                .ok_or(DKGError::<E>::InvalidParticipantId(*participant_id))?;
-            let message = message_from_c_i(contribution.c_i)?;
+                .ok_or(PVSSError::<E>::InvalidParticipantId(*participant_id))?;
+
+	    // serialize decomposition proof into an array of bytes.
+            let message = message_from_pi_i(contribution.decomp_proof)?;
 
             public_keys_sig.push(&participant.public_key_sig);
             messages_sig.push(message.clone());
-            signatures_sig.push(&contribution.signature_on_c_i);
+            signatures_sig.push(&contribution.signature_on_decomp);
 
-            public_keys_pok.push(&contribution.c_i);
+            public_keys_pok.push(&contribution.decomp_proof);
             messages_pok.push(message);
             signatures_pok.push(&contribution.c_i_pok);
 
@@ -112,7 +117,7 @@ impl<
                 .c_i
                 .mul(<E::Fr as From<u64>>::from(contribution.weight));
         }
-        let sig_timer = start_timer!(|| "Signature batch verify");
+        let sig_timer = start_timer!(|| "Signature batch verification");
         self.scheme_sig.batch_verify(
             rng,
             &public_keys_sig,
@@ -124,7 +129,7 @@ impl<
         )?;
         end_timer!(sig_timer);
 
-        let pok_timer = start_timer!(|| "POK batch verify");
+        let pok_timer = start_timer!(|| "POK batch verification");
         self.scheme_pok.batch_verify(
             rng,
             &public_keys_pok,
@@ -136,180 +141,75 @@ impl<
         )?;
         end_timer!(pok_timer);
 
-        let pvss_timer = start_timer!(|| "PVSS share verify");
+	// Verify PVSS share
+        let pvss_timer = start_timer!(|| "PVSS share verification");
         self.pvss_share_verify(rng, c.into_affine(), &transcript.pvss_share)?;
         end_timer!(pvss_timer);
+
         Ok(())
     }
 
-*/
 
-
-    // Method for verifying individual PVSS shares.
+    // Method for verifying individual PVSS shares against a commitment to some secret.
     pub fn pvss_share_verify<R: Rng>(
         &self,
         rng: &mut R,
+	decomp_proof: &DecompProof<E>,   // need to pass on separately since PVSSShares don't have decomps attached
         share: &PVSSShare<E>,
     ) -> Result<(), PVSSError<E>> {
 
 	// Check that the sizes are correct
-	if share.encs.len() != self.config.num_replicas ||
-           share.comms.len() != self.config.num_replicas {
+	if share.encs.len() != self.config.num_participants ||
+           share.comms.len() != self.config.num_participants {
 	    return Err(PVSSError::MismatchedCommitsEncryptionsReplicasError(share.encs.len(),
-			share.comms.len(), self.config.num_replicas));
+			share.comms.len(), self.config.num_participants));
 	}
 
-	// Coding check for the commitments
-	if (!ensure_degree::<E, _>(rng, &share.comms, config.degree)) {
-            return Err(PVSSError::DualCodeError());
+	// Coding check for the commitments to ensure that they represent a
+	// commitment to a degree t polynomial.
+	if ensure_degree::<E, _>(rng, &share.comms, self.config.degree as u64).is_err() {
+            return Err(PVSSError::DualCodeError);
         }
 
-        // Check decomposition proof
-	let point = lagrange_interpolation_simple(share.comms, config.degree())
+	// Q: Is a pairing condition check truly necessary here?
 
-	if point != share.decomp_proof.gs {
+        // Check decomposition proof.
+	let point = lagrange_interpolation_simple::<E>(&share.comms, self.config.degree as u64).unwrap();   // E::G2Projective
+
+	if point.into_affine() != decomp_proof.gs {
 	    return Err(PVSSError::GSCheckError);
 	}
 
-	// TODO: CONTINUE FROM HERE...
-
-        // Reminder: Com_generator := g_2
-        if !share.decomp_proof.proof.verify(Com_generator, point);   // need to know the pk of the party who sent the proof
-
-        Ok(())
-
-	// REFERENCE CODE BEYOND THIS POINT:
-
-        // Verify evaluations are correct probabilistically.
-        let alpha = E::Fr::rand(rng);
-        let domain = Radix2EvaluationDomain::<E::Fr>::new(self.participants.len())
-            .ok_or(DKGError::<E>::EvaluationDomainError)?;
-        let lagrange_coefficients = domain
-            .evaluate_all_lagrange_coefficients(alpha)
-            .into_iter()
-            .map(|c| c.into_repr())
-            .collect::<Vec<_>>();
-
-        {
-            let mut bases = vec![];
-            let mut scalars = vec![];
-            bases.extend_from_slice(&share.a_i);
-            scalars.extend_from_slice(&lagrange_coefficients);
-            let powers_of_alpha = {
-                let mut current_alpha = E::Fr::one().neg();
-                let mut powers = vec![];
-                for _ in 0..=self.config.degree {
-                    powers.push(current_alpha.into_repr());
-                    current_alpha *= &alpha;
-                }
-                powers
-            };
-            bases.extend_from_slice(&[vec![c_i], share.f_i.clone()].concat());
-            scalars.extend_from_slice(&powers_of_alpha);
-            let product = VariableBaseMSM::multi_scalar_mul(&bases, &scalars);
-            if !product.is_zero() {
-                return Err(DKGError::EvaluationsCheckError(product.into()));
-            }
-        }
-
-        // Verify same ratio. Need this for security proof.
-        let pairs = [
-            (c_i.into(), self.config.u_1.into()),
-            (self.config.srs.g_g1.neg().into(), share.u_i_2.into()),
-        ];
-        if !E::product_of_pairings(pairs.iter()).is_one() {
-            return Err(DKGError::RatioIncorrect);
-        }
-
-        let powers_of_alpha = {
-            let mut current_alpha = E::Fr::one();
-            let mut powers = vec![];
-            for _ in 0..=self.participants.len() {
-                powers.push(current_alpha.into_repr());
-                current_alpha *= &alpha;
-            }
-            powers
-        };
-        let (batched_a_i, batched_g_1_neg) = {
-            let g_1_neg = self.config.srs.g_g1.neg();
-            let batched_a_i = share
-                .a_i
-                .iter()
-                .zip(powers_of_alpha.iter())
-                .map(|(a, power)| a.mul(*power))
-                .collect::<Vec<_>>();
-            let batched_g_1_neg = powers_of_alpha
-                .iter()
-                .map(|power| g_1_neg.mul(*power))
-                .collect::<Vec<_>>();
-            let mut batched_all = vec![];
-            batched_all.extend_from_slice(&batched_a_i);
-            batched_all.extend_from_slice(&batched_g_1_neg);
-            let batched_all = E::G1Projective::batch_normalization_into_affine(&batched_all);
-            let batched_a_i = batched_all[..batched_a_i.len()]
-                .into_iter()
-                .map(|x| x.clone())
-                .collect::<Vec<_>>();
-            let batched_g_1_neg = batched_all[batched_a_i.len()..]
-                .into_iter()
-                .map(|x| x.clone())
-                .collect::<Vec<_>>();
-            (batched_a_i, batched_g_1_neg)
-        };
-        // Verify evaluations are encrypted correctly.
-        let pairs = batched_a_i
-            .into_iter()
-            .zip(share.y_i.iter())
-            .zip(batched_g_1_neg.into_iter())
-            .enumerate()
-            .map::<Result<Vec<(E::G1Prepared, E::G2Prepared)>, DKGError<E>>, _>(
-                |(i, ((a, y), g_1_neg))| {
-                    let participant = self
-                        .participants
-                        .get(&i)
-                        .ok_or(DKGError::<E>::InvalidParticipantId(i))?;
-                    let pairs = vec![
-                        (g_1_neg.into(), (*y).into()),
-                        (a.into(), participant.public_key_sig.into()),
-                    ];
-
-                    Ok(pairs)
-                },
-            )
-            .collect::<Result<Vec<_>, _>>()?
-            .into_iter()
-            .flatten()
-            .collect::<Vec<(E::G1Prepared, E::G2Prepared)>>();
-        if !E::product_of_pairings(pairs.iter()).is_one() {
-            return Err(DKGError::RatioIncorrect);
-        }
+	// Verify decomposition proof against our config.
+        if decomp_proof.verify(&self.config).is_err() {
+	    return Err(PVSSError::DecompProofVerificationError);
+	}
 
         Ok(())
     }
 
 
-
-*/
-
+    // Method for verifying a received PVSSAugmentedShare instance.
     pub fn share_verify<R: Rng>(
         &mut self,
         rng: &mut R,
         share: &PVSSAugmentedShare<E, SSIG>,
     ) -> Result<(), PVSSError<E>> {
-        let participant_id = share.participant_id;
-
+        // Retrieve the Participant instance using the id within the augmented share.
+	let participant_id = share.participant_id;
         let participant = self
             .participants
             .get(&participant_id)
             .ok_or(PVSSError::<E>::InvalidParticipantId(participant_id))?;
 
-        self.pvss_share_verify(rng, share.c_i, &share.pvss_share)?;
+	// Verify the "core" PVSS share against the provided decomposition proof.
+	self.pvss_share_verify(rng, &share.decomp_proof, &share.pvss_share)?;
 
-        // Verify signature on C_i by participant i.
+        // Verify signature on decomposition proof against participant i's public key.
         self.scheme_sig.verify(
             &participant.public_key_sig,
-            &message_from_c_i(share.c_i)?,
-            &share.signature_on_c_i,
+            &message_from_pi_i(share.decomp_proof)?,
+            &share.signature_on_decomp,
         )?;
 
         // Verify POK of C_i.
