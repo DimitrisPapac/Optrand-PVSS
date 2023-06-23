@@ -146,18 +146,26 @@ impl<C: AffineCurve> BatchVerifiableSignatureScheme for SchnorrSignature<C> {
             ));
         }
 
+	// Probabilistic verification
         let alpha = C::ScalarField::rand(rng);
         let mut current_alpha = C::ScalarField::one();
 
+	// Serialize the SRS generator into a vector of bytes
         let mut g_bytes = vec![];
         self.srs.g_public_key.serialize(&mut g_bytes)?;
 
+	// Initialize vectors for bases and scalars
         let mut bases = vec![];
         let mut scalars = vec![];
+
+	// For each provided public key
         for i in 0..public_keys.len() {
+	    // Serialize the "response" part of the input signature into
+            // a vector of bytes
             let mut v_g_bytes = vec![];
             signatures[i].0.serialize(&mut v_g_bytes)?;
 
+	    // Hash the message, generator, and response
             let hashed_message = hash_to_field::<C::ScalarField>(
                 PERSONALIZATION,
                 &[messages[i], &g_bytes, &v_g_bytes].concat(),
@@ -174,11 +182,15 @@ impl<C: AffineCurve> BatchVerifiableSignatureScheme for SchnorrSignature<C> {
 
             current_alpha *= &alpha;
         }
+
         let bases = C::Projective::batch_normalization_into_affine(&bases);
         let accumulated_check = VariableBaseMSM::multi_scalar_mul(&bases, &scalars);
+
+	// 
         if !accumulated_check.is_zero() {
             return Err(SignatureError::SchnorrVerify);
         }
+
         Ok(())
     }
 }
@@ -290,12 +302,15 @@ mod test {
         let rng = &mut thread_rng();
         let srs = SRS::<C>::setup(rng).unwrap();
         let schnorr = SchnorrSignature { srs };
+
         let keypair = schnorr.generate_keypair(rng).unwrap();
         let message = b"hello";
         let signature = schnorr.sign(rng, &keypair.0, &message[..]).unwrap();
+
         let keypair2 = schnorr.generate_keypair(rng).unwrap();
         let message2 = b"hello2";
         let signature2 = schnorr.sign(rng, &keypair2.0, &message2[..]).unwrap();
+
         schnorr
             .batch_verify(
                 rng,
