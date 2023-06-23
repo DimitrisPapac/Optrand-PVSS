@@ -1,17 +1,19 @@
 use crate::{
     modified_scrape::{
-        //aggregator::PVSSAggregator,
+        aggregator::PVSSAggregator,
         config::Config,
         dealer::Dealer,
         errors::PVSSError,
         participant::{Participant, ParticipantState},
         pvss::{PVSSShare, PVSSShareSecrets},
 	decomp::{Decomp, DecompProof, message_from_pi_i},
-        //share::{message_from_c_i, DKGShare, DKGTranscript},
     },
     signature::scheme::BatchVerifiableSignatureScheme,
 };
-use super::poly::{Polynomial, Scalar, lagrange_interpolation, lagrange_interpolation_simple, ensure_degree};
+use crate::modified_scrape::share::{PVSSTranscript, PVSSAugmentedShare};
+use super::poly::{Polynomial, lagrange_interpolation, lagrange_interpolation_simple, ensure_degree};
+use super::decryption::DecryptedShare;
+use crate::{GT, Scalar};
 
 use ark_ec::{AffineCurve, PairingEngine, ProjectiveCurve};
 use ark_ff::{Field, PrimeField, UniformRand};
@@ -100,14 +102,11 @@ impl<
             })
             .collect::<Result<_, _>>()?;
 
-	// Generate decomposition proof
-	let decomp_proof = vec![Decomp::<E>::generate(rng, &aggregator.config, &poly).unwrap()];
-
 	// Compose PVSS share
 	let pvss_share = PVSSShare {
             comms,
 	    encs,
-	    decomp_proof,
+	    // decomp_proof,
 	    // sig_of_knowledge
         };
 
@@ -133,8 +132,11 @@ impl<
 
     // Method for generating a PVSSAugmentedShare instance for secret sharing.
     pub fn share<R: Rng>(&mut self, rng: &mut R) -> Result<PVSSAugmentedShare<E, SSIG>, PVSSError<E>> {
-	// Create the core PVSSShare first
+	// Create the core PVSSShare first.
 	let (pvss_share, pvss_share_secrets) = self.share_pvss(rng)?;
+
+	// Generate decomposition proof.
+	let decomp_proof = Decomp::<E>::generate(rng, &aggregator.config, &pvss_share_secrets.p_0).unwrap();
 
 	// Use the (private) signing key contained in the dealer instance to also compute
 	// the public key w.r.t. the signature scheme indicated by the aggregator instance.
@@ -144,7 +146,7 @@ impl<
             .from_sk(&(self.dealer.private_key_sig))?;
 
 	// Sign the decomposition proof.
-	let sig_of_knowledge =
+	let signature_on_decomp =
             Some(self.aggregator
                 .scheme_sig
                 .sign(rng, &signature_keypair.0, &message_from_pi_i(decomp_proof)?)?);
@@ -153,7 +155,8 @@ impl<
 	let share = PVSSAugmentedShare {
             participant_id: self.dealer.participant.id,
             pvss_share,
-            signature_on_decomp: signature,
+	    decomp_proof,
+            signature_on_decomp,
         };
 
 	// Set dealer instance's state to DealerShared.
@@ -173,13 +176,20 @@ impl<
 	let participant_id = share.participant_id;
 
 	// Anonymous function for performing the decryption
-	match (|| -> Result<E::G2Affine, PVSSError<E>> {
+	match (|| -> Result<DecryptedShare<E>, PVSSError<E>> {   // Result<E::G2Affine, PVSSError<E>>
             self.aggregator.receive_share(rng, &share)?;   // ................
-
+	    
+	    /*
 	    // decryption occurs here
             let secret = share.pvss_share.encs[self.dealer.participant.id]
                 .mul(self.dealer.private_key_sig.inverse().unwrap().into_repr())
                 .into_affine();
+	    */
+
+	    // decrypt share
+	    let secret = DecryptedShare::generate(share.pvss_share.encs[self.dealer.participant.id],
+		self.dealer.private_key_sig,
+		self.dealer.participant.id);
 
             Ok(secret)
         })() {
@@ -227,28 +237,55 @@ impl<
 */
 
 
+    // Method for reconstructing the shared secret and beacon value.
     pub fn reconstruct(
-	&mut self,) {
-	
+	&mut self,
+	decryptions: &Vec<DecryptedShare<E>>
+	) -> Result<(E::G1Affine, GT<E>), PVSSError<E>> {
+
+	let degree = self.aggregator.config.degree as u64;
+
+	if decryptions.len() <= degree {
+	    return Err(PVSSError::InsufficientDecryptionsError(decryptions.size(), self.aggregator.config.degree));
+	}
+
+	// NOTE: Mind the +1 when extracting the origin
+	let (points, evals): (Vec<_>, Vec<_>) = (0..decryptions.len())
+	    .map(|i| (decryptions[i].origin + 1, decryptions[i].dec))
+	    .unzip();
+
+	// Lagrange interpolation over group G_1
+	match (|| -> Result<E::G1Projective, PVSSError<E>> {
+            let mut sum = E::G1Projective::zero();
+
+    	    for j in 0..degree+1 {
+                let x_j = points[j as usize];
+	        let mut prod = Scalar::<E>::one();
+	        for k in 0..degree+1 {
+	            if j != k {
+	                let x_k = points[k as usize];
+	                prod *= x_k * (x_k - x_j).inverse().unwrap();
+	            }
+	        }
+
+	        // Recovery formula
+	        sum += evals[j as usize].mul(prod.into_repr());
+            }
+
+            Ok(sum)
+        })() {
+            Ok(sum) => {
+                let point = sum.into_affine();
+            }
+            Err(_) => {}
+        };
+
+	// Compute the "beacon value"
+	let S = E::pairing(point, self.aggregator.config.g2_prime);   // in <E as PairingEngine>::Fqk
+
+	Ok((point, S))
     }
 
-/*
-inline beacon_t Context::reconstruct(const std::vector<decryption_t> &recon) const 
-{
-    assert(recon.size()>config.num_faults());
-    std::vector<Fr> points;
-    points.reserve(config.num_faults()+1);
-    std::vector<PK_Group> evals;
-    evals.reserve(config.num_faults()+1);
-    for(const auto& dec: recon) {
-        points.emplace_back(static_cast<long>(dec.origin+1));
-        evals.emplace_back(dec.dec);
-    }
-    auto point = lagrange_interpolation(config.num_faults(), evals, points);
-    // e(h^s, g')
-    auto beacon = libff::default_ec_pp::pairing(point, h2);
-    return beacon_t{point, beacon};
-}
-*/
-
+    // Verification of beacon value
+    
 }
