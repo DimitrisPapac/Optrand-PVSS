@@ -1,35 +1,39 @@
-use super::{poly::Polynomial, config::Config};
-use crate::signature::schnorr::srs::SRS as DLKSRS;
+use super::{config::Config, errors::PVSSError};
+use crate::nizk::{dlk::{DLKProof, srs::SRS as DLKSRS}, scheme::NIZKProof};
+use crate::Scalar;
 
-use crate::nizk::{dlk::DLKProof, scheme::NIZKProof};
 use ark_ec::{AffineCurve, PairingEngine, ProjectiveCurve};
 use ark_ff::PrimeField;
-use std::marker::PhantomData;
-use rand::Rng;
 use ark_serialize::*;
 use ark_std::fmt::Debug;
 
-type ProofGroup<E> = <E as PairingEngine>::G2Affine;   // the group over which the proof is computed
-type ProofType<E> = DecompProof<ProofGroup<E>>;        // the type we want the proof to be
+use std::io::Cursor;
+use std::marker::PhantomData;
+use rand::Rng;
+
+pub type ProofGroup<E> = <E as PairingEngine>::G2Affine;   // the group over which the proof is computed
+pub type ProofType<E> = DecompProof<E>;   		   // the type of output decomposition proofs
 
 // Struct Decomp models the Decomposition proof system.
 #[derive(Clone, Debug, CanonicalSerialize, CanonicalDeserialize, PartialEq)]
 pub struct Decomp<E: PairingEngine> {
-    pairing_engine: PhantomData<E>,   // caches E
+    pairing_engine: PhantomData<E>,   // cache E
 }
 
 // Struct DecompProof models the actual decomposition proof.
-#[derive(Clone, Debug, PartialEq, CanonicalSerialize, CanonicalDeserialize)]
-pub struct DecompProof<G: AffineCurve> {
-    pub pi: <DLKProof<G> as NIZKProof>::Proof,   // the proof of knowledge of discrete log
-    pub gs: G,                                   // the associated public statement (i.e., commitment to the secret)
+#[derive(Clone, Copy, Debug, PartialEq, CanonicalSerialize, CanonicalDeserialize)]
+pub struct DecompProof<E: PairingEngine> {
+    pub proof: <DLKProof<ProofGroup<E>> as NIZKProof>::Proof,   // the proof of knowledge of discrete log
+    pub gs: ProofGroup<E>,                                      // the associated public statement (i.e., commitment to the secret)
 }
 
 impl<E: PairingEngine> Decomp<E> {
 
     // Associated function for generating decomposition proofs.
-    pub fn generate<R: Rng>(rng: &mut R, config: &Config<E>, poly: &Polynomial<E>) -> ProofType<E> {   // TODO: Change to Result<...>
-        let secret = poly.coeffs[0];
+    pub fn generate<R: Rng>(rng: &mut R,
+                            config: &Config<E>,
+			    p_0: &Scalar<E>) -> Result<ProofType<E>, PVSSError<E>> {
+	let secret = p_0;
 	let generator = config.srs.g2;
 	let gs = generator.mul(secret.into_repr()).into_affine();
 
@@ -37,10 +41,32 @@ impl<E: PairingEngine> Decomp<E> {
 	let dlk = DLKProof { srs: dlk_srs };   // initialize proof system for DLK NIZKs.
 
 	// Double-check with Adithya's code for Dleq for increased efficiency/security.
-	let pi = dlk.prove(rng, &secret).unwrap();
+	let proof = dlk.prove(rng, &secret).unwrap();
 
-	DecompProof { pi, gs }
+	Ok(DecompProof { proof, gs })
     }
+}
+
+impl<E: PairingEngine> DecompProof<E> {
+
+    // Method for verifying decomposition proofs under some configuration.
+    pub fn verify(&self,
+                  config: &Config<E>) -> Result<(), PVSSError<E>> {
+	// Create a proof system for proving knowledge of discrete log
+	let dlk = DLKProof { srs: DLKSRS::<ProofGroup::<E>> { g_public_key: config.srs.g2 } };
+
+	Ok(dlk
+           .verify(&self.gs, &self.proof)
+           .unwrap())                            // TODO: what if the dlk produces an error???
+    }
+}
+
+// Utility function for buffering a decomposition proof into a buffer and
+// obtaining a reference to said buffer.
+pub fn message_from_pi_i<E: PairingEngine>(pi_i: DecompProof<E>) -> Result<Vec<u8>, PVSSError<E>> {
+    let mut message_writer = Cursor::new(vec![]);
+    pi_i.serialize(&mut message_writer)?;
+    Ok(message_writer.get_ref().to_vec())
 }
 
 
@@ -50,12 +76,9 @@ impl<E: PairingEngine> Decomp<E> {
 mod test {
 
     use ark_bls12_381::{Bls12_381 as E};   // implements PairingEngine
-    //use ark_bls12_381::{G1Affine, G2Affine as C};
-    //use ark_ec::{AffineCurve, ProjectiveCurve, PairingEngine};
     use ark_poly::UVPolynomial;
 
-    use crate::signature::{schnorr::srs::SRS as DLKSRS, utils::tests::check_serialization};
-    use crate::nizk::{dlk::DLKProof, scheme::NIZKProof};
+    use crate::signature::{utils::tests::check_serialization};
     use crate::modified_scrape::{decomp::Decomp, srs::SRS, poly::Polynomial, config::Config};
 
     use rand::thread_rng;
@@ -67,16 +90,12 @@ mod test {
 
 	let t = 3;
 	let n = 10;
-	let conf = Config { srs, degree: t, num_replicas: n };
+	let conf = Config { srs, degree: t, num_participants: n };
 	let poly = Polynomial::<E>::rand(t, rng);
 
-	let dproof = Decomp::<E>::generate(rng, &conf, &poly);
+	let dproof = Decomp::<E>::generate(rng, &conf, &poly.coeffs[0]).unwrap();
 
-	let dlk = DLKProof { srs: DLKSRS { g_public_key: conf.srs.g2 } };   // This is ugly...
-
-        dlk
-           .verify(&dproof.gs, &dproof.pi)
-           .unwrap()
+	dproof.verify(&conf).unwrap()
     }
 
     #[test]
@@ -86,10 +105,10 @@ mod test {
 
 	let t = 3;
 	let n = 10;
-	let conf = Config { srs, degree: t, num_replicas: n };
+	let conf = Config { srs, degree: t, num_participants: n };
 	let poly = Polynomial::<E>::rand(t, rng);
 
-	let dproof = Decomp::<E>::generate(rng, &conf, &poly);
+	let dproof = Decomp::<E>::generate(rng, &conf, &poly.coeffs[0]).unwrap();
 
         check_serialization(dproof.clone());
     }
