@@ -286,6 +286,4 @@ impl<
 	Ok((point, S))
     }
 
-    // Q: Is verification of beacon value necessary?
-    
 }
