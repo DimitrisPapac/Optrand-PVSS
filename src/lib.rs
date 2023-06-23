@@ -13,8 +13,6 @@ use ark_ec::PairingEngine;
 
 ///////////////////////////////////////////////////////////////////
 
-// Also declared in poly.rs:
-
 /// The scalar field of the pairing groups
 pub type Scalar<E> = <E as PairingEngine>::Fr;
 
