@@ -40,6 +40,10 @@ pub enum PVSSError<E: PairingEngine> {
     TranscriptDifferentConfig(usize, usize, usize, usize),
     #[error("Transcripts have different commitments")]
     TranscriptDifferentCommitments,
+    #[error("Decomposition proof does not verify")]
+    DecompProofVerificationError,
+    #[error("Insufficient number of decryptions provided for reconstruction Got: {0}, Expected: >= {1}")]
+    InsufficientDecryptionsError(usize, usize),
 
     #[error("Ratio incorrect")]
     RatioIncorrect,
