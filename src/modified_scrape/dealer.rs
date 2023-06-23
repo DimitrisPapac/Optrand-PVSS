@@ -8,7 +8,13 @@ pub struct Dealer<
     E: PairingEngine,
     SSIG: BatchVerifiableSignatureScheme<PublicKey = E::G2Affine, Secret = E::Fr>,
 > {
-    pub private_key_sig: SSIG::Secret,       // Dealer's secret (signing) key
+    pub private_key_sig: SSIG::Secret,            // Dealer's secret (signing) key
+
+    // MAY BE REDUNDANT
     pub accumulated_secret: E::G2Affine,     // Dealer's accumulated secret (in G_2)
-    pub participant: Participant<E, SSIG>,   // Dealers have participant characteristics (structural composition)
+
+    // MAY BE REDUNDANT
+    pub decryptions: Vec<(usize, E::G1Affine)>,   // Dealer's list of accumulated decryptions, along with the respective participant ids
+
+    pub participant: Participant<E, SSIG>,        // Dealers have participant characteristics (structural composition)
 }
