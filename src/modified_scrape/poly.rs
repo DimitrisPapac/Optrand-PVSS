@@ -64,7 +64,7 @@ where
 
 
 
-// 
+// Utility function for Lagrange interpolation from a given list of evaluations.
 pub fn lagrange_interpolation_simple<E>(evals: &Vec<E::G2Projective>,
 					degree: u64) -> Result<E::G2Projective, PVSSError<E>> 
 where
@@ -97,7 +97,8 @@ where
 
 
 
-// 
+// Utility function for Lagrange interpolation from a given list of points
+// and evaluations.
 pub fn lagrange_interpolation<E>(evals: &Vec<E::G2Projective>,
 				 points: &Vec<Scalar<E>>,
 				 degree: u64) -> Result<E::G2Projective, PVSSError<E>> 
