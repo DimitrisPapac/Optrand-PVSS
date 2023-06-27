@@ -15,9 +15,10 @@ use ark_ec::{PairingEngine, ProjectiveCurve};   // msm::VariableBaseMSM, AffineC
 use ark_std::collections::BTreeMap;
 
 //use ark_ff::{One, PrimeField, UniformRand, Zero};
+use ark_ff::{One, Zero};
 
 use rand::Rng;
-//use std::ops::Neg;
+use std::ops::Neg;
 
 
 
@@ -94,7 +95,7 @@ impl<
 
     	// Coding check for the commitments to ensure that they represent a
 	// commitment to a degree t polynomial.
-	if ensure_degree::<E, _>(rng, &transcript.pvss_share.comms, self.config.degree as u64).is_err()
+	if ensure_degree::<E, _>(rng, &transcript.pvss_share.comms, self.config.degree as u64).is_err() {
             return Err(PVSSError::DualCodeError);
     	}
 
@@ -180,7 +181,6 @@ impl<
 	decomp_proof: &DecompProof<E>,   // need to pass on separately since PVSSShares don't have decomps attached
         share: &PVSSShare<E>,
     ) -> Result<(), PVSSError<E>> {
-
 	// Check that the sizes of commitments and encryptions are correct.
 	if share.encs.len() != self.config.num_participants ||
            share.comms.len() != self.config.num_participants {
@@ -231,8 +231,8 @@ impl<
 	// e(participant.public_key_sig, share.comms[i]) == e(share.enc[i], self.config.srs.g2)
 
 	let pairs = [
-            (participant.public_key_sig.into(), share.comms[participant_id].into()),
-            (share.enc[participant_id].into(), self.config.srs.g2.neg().into()),
+            (participant.public_key_sig.into(), share.pvss_share.comms[participant_id].into()),
+            (share.pvss_share.enc[participant_id].into(), self.config.srs.g2.neg().into()),
         ];
 
         if !E::product_of_pairings(pairs.iter()).is_one() {
