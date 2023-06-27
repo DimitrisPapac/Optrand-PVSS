@@ -15,7 +15,7 @@ pub enum PVSSError<E: PairingEngine> {
     #[error("Invalid participant ID: {0}")]
     InvalidParticipantId(usize),
     #[error("Mismatch between provided encryptions ({0} given), commitments ({1} given), and participants ({2} given)")]
-    MismatchedCommitsEncryptionsReplicasError(usize, usize, usize),
+    MismatchedCommitsEncryptionsParticipantsError(usize, usize, usize),
     #[error("Degree check failed. Dual code condition does not hold")]
     DualCodeError,
     #[error("gs check failed")]
@@ -44,6 +44,10 @@ pub enum PVSSError<E: PairingEngine> {
     DecompProofVerificationError,
     #[error("Insufficient number of decryptions provided for reconstruction Got: {0}, Expected: >= {1}")]
     InsufficientDecryptionsError(usize, usize),
+    #[error("Length mismatch")]
+    LengthMismatchError,
+    #[error("Correctness of encryption check failed")]
+    EncryptionCorrectnessError,
 
     #[error("Ratio incorrect")]
     RatioIncorrect,
