@@ -10,5 +10,5 @@ pub mod share;
 
 pub mod participant;
 pub mod dealer;
-//pub mod aggregator;
+pub mod aggregator;
 //pub mod node;
