@@ -42,7 +42,7 @@ impl<
     > PVSSAggregator<E, SSIG>   // <E, SPOK, SSIG>
 {
 
-    // Method for handling a received an augmented PVSS share instance.
+    // Method for handling a received augmented PVSS share instance.
     pub fn receive_share<R: Rng>(
         &mut self,
         rng: &mut R,
@@ -77,7 +77,7 @@ impl<
     }
 
 
-    // Method for handling a received PVSSTranscript instance.
+    // Method for handling a received PVSS transcript instance.
     pub fn receive_transcript<R: Rng>(
         &mut self,
         rng: &mut R,
@@ -85,6 +85,28 @@ impl<
     ) -> Result<(), PVSSError<E>> {
 
 	// Perform checks on the transcript analogous to Context::verify_aggregation
+
+	if transcript.pvss_share.encs.len() != self.config.num_participants || 
+            transcript.pvss_share.comms.len() != self.config.num_participants ||
+            transcript.contributions.len() < self.config.degree {   // maybe break down into individual checks for better control
+            return Err(PVSSError::LengthMismatchError);
+    	}
+
+    	// Coding check for the commitments to ensure that they represent a
+	// commitment to a degree t polynomial.
+	if ensure_degree::<E, _>(rng, &transcript.pvss_share.comms, self.config.degree as u64).is_err()
+            return Err(PVSSError::DualCodeError);
+    	}
+
+	// Pairing check
+
+	// ...
+
+	// Decomposition proof check
+	
+	// ...
+
+	// other...
 
         let mut c = E::G1Projective::zero();
         let mut public_keys_sig = vec![];
@@ -117,6 +139,7 @@ impl<
                 .c_i
                 .mul(<E::Fr as From<u64>>::from(contribution.weight));
         }
+
         let sig_timer = start_timer!(|| "Signature batch verification");
         self.scheme_sig.batch_verify(
             rng,
@@ -158,10 +181,10 @@ impl<
         share: &PVSSShare<E>,
     ) -> Result<(), PVSSError<E>> {
 
-	// Check that the sizes are correct
+	// Check that the sizes of commitments and encryptions are correct.
 	if share.encs.len() != self.config.num_participants ||
            share.comms.len() != self.config.num_participants {
-	    return Err(PVSSError::MismatchedCommitsEncryptionsReplicasError(share.encs.len(),
+	    return Err(PVSSError::MismatchedCommitsEncryptionsParticipantsError(share.encs.len(),
 			share.comms.len(), self.config.num_participants));
 	}
 
@@ -171,7 +194,9 @@ impl<
             return Err(PVSSError::DualCodeError);
         }
 
-	// Q: Is a pairing condition check truly necessary here?
+	// Check pairing condition for correctness of encryption is: e(pk_i, v_i) = e(enc_i, g_2).
+	// NOTE: However, we do not have access to the sender's identity at this point (and by
+	// extension, its public key). Hence, this check is done in share_verify.
 
         // Check decomposition proof.
 	let point = lagrange_interpolation_simple::<E>(&share.comms, self.config.degree as u64).unwrap();   // E::G2Projective
@@ -201,6 +226,18 @@ impl<
             .participants
             .get(&participant_id)
             .ok_or(PVSSError::<E>::InvalidParticipantId(participant_id))?;
+
+	// Verify correctness of encryption:
+	// e(participant.public_key_sig, share.comms[i]) == e(share.enc[i], self.config.srs.g2)
+
+	let pairs = [
+            (participant.public_key_sig.into(), share.comms[participant_id].into()),
+            (share.enc[participant_id].into(), self.config.srs.g2.neg().into()),
+        ];
+
+        if !E::product_of_pairings(pairs.iter()).is_one() {
+            return Err(PVSSError::EncryptionCorrectnessError);
+        }
 
 	// Verify the "core" PVSS share against the provided decomposition proof.
 	self.pvss_share_verify(rng, &share.decomp_proof, &share.pvss_share)?;
