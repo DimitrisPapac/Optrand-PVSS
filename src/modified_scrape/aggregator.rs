@@ -174,7 +174,7 @@ impl<
     }
 
 
-    // Method for verifying individual PVSS shares against a commitment to some secret.
+    // Method for verifying individual "core" PVSS shares against a commitment to some secret.
     pub fn pvss_share_verify<R: Rng>(
         &self,
         rng: &mut R,
@@ -220,6 +220,7 @@ impl<
         rng: &mut R,
         share: &PVSSAugmentedShare<E, SSIG>,
     ) -> Result<(), PVSSError<E>> {
+
         // Retrieve the Participant instance using the id within the augmented share.
 	let participant_id = share.participant_id;
         let participant = self
@@ -248,10 +249,6 @@ impl<
             &message_from_pi_i(share.decomp_proof)?,
             &share.signature_on_decomp,
         )?;
-
-        // Verify POK of C_i.
-        // self.scheme_pok
-        //     .verify(&share.c_i, &message_from_c_i(share.c_i)?, &share.c_i_pok)?;
 
         Ok(())
     }
