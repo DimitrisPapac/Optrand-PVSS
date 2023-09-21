@@ -48,6 +48,11 @@ pub enum PVSSError<E: PairingEngine> {
     LengthMismatchError,
     #[error("Correctness of encryption check failed")]
     EncryptionCorrectnessError,
+    #[error("Decomposition in transcript is incorrect")]
+    DecompositionInTranscriptError,
+    #[error("Aggregated gs from transcript does not match reconstruction")]
+    AggregationReconstructionMismatchError,
+
 
     #[error("Ratio incorrect")]
     RatioIncorrect,
