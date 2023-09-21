@@ -1,11 +1,9 @@
 use crate::{
-    signature::scheme::BatchVerifiableSignatureScheme,
+    modified_scrape::{errors::PVSSError, pvss::PVSSShare, decomp::DecompProof},
+    Serialize,
+    Deserialize,
+    Signature,
 };
-
-use crate::modified_scrape::errors::PVSSError;
-use crate::modified_scrape::pvss::PVSSShare;
-use crate::Scalar;
-use crate::modified_scrape::decomp::DecompProof;
 
 use ark_ec::PairingEngine;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Read, SerializationError, Write};
@@ -13,55 +11,48 @@ use ark_std::collections::BTreeMap;
 use std::io::Cursor;
 
 
-
 // PVSSAugmentedShare represents a PVSSShare that has been augmented to include the origin's id,
 // as well as a signature on the decomposition proof included in the core PVSS share.
-#[derive(CanonicalSerialize, CanonicalDeserialize, Clone)]
-pub struct PVSSAugmentedShare<E, SSIG>
+#[derive(Serialize, Deserialize, Clone)]
+pub struct PVSSAugmentedShare<E>
 where
     E: PairingEngine,
-    // SPOK: BatchVerifiableSignatureScheme<PublicKey = E::G1Affine, Secret = Scalar<E>>,   // might be redundant
-    SSIG: BatchVerifiableSignatureScheme<PublicKey = E::G2Affine, Secret = Scalar<E>>,
 {
-    pub participant_id: usize,
-    pub pvss_share: PVSSShare<E>,
-    pub decomp_proof: DecompProof<E>,
-    pub signature_on_decomp: SSIG::Signature,
+    pub participant_id: usize,            // issuer of the augmented share
+    pub pvss_share: PVSSShare<E>,         // "core" PVSS share
+    pub decomp_proof: DecompProof<E>,     // proof of knowledge of shared secret
+    pub signature_on_decomp: Signature,   // signed knowledge proof
 }
 
 
 // PVSSTranscript represents the transcripts obtained by each aggregator instance
 // during execution of the PVSS protocol.
-#[derive(CanonicalSerialize, CanonicalDeserialize, Clone)]
-pub struct PVSSTranscript<E, SSIG>
+#[derive(Serialize, Deserialize, Clone)]
+pub struct PVSSTranscript<E>
 where
     E: PairingEngine,
-    // SPOK: BatchVerifiableSignatureScheme<PublicKey = E::G1Affine, Secret = Scalar<E>>,   // might be redundant
-    SSIG: BatchVerifiableSignatureScheme<PublicKey = E::G2Affine, Secret = Scalar<E>>,
 {
     pub degree: usize,
     pub num_participants: usize,
 
     // "contributions" isn't a very fitting name IMO...
-    pub contributions: BTreeMap<usize, PVSSTranscriptParticipant<E, SSIG>>,   // <E, SPOK, SSIG>
+    pub contributions: BTreeMap<usize, PVSSTranscriptParticipant<E>>,
     pub pvss_share: PVSSShare<E>,
 }
 
 
 // PVSSTranscriptParticipant represents a "contribution" of an individual protocol participant.
-#[derive(CanonicalSerialize, CanonicalDeserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct PVSSTranscriptParticipant<
     E: PairingEngine,
-    // SPOK: BatchVerifiableSignatureScheme<PublicKey = E::G1Affine, Secret = Scalar<E>>,   // might be redundant
-    SSIG: BatchVerifiableSignatureScheme<PublicKey = E::G2Affine, Secret = Scalar<E>>,
 > {
     pub decomp_proof: DecompProof<E>,           // contains gs
-    pub signature_on_decomp: SSIG::Signature,   
+    pub signature_on_decomp: Signature,   
 }
 
 
-// Utility function for buffering a decomposition proof into a buffer and
-// obtaining a reference to said buffer.
+// Utility function for buffering a decomposition proof into a buffer and obtaining a reference
+// to said buffer.
 pub fn message_from_pi_i<E: PairingEngine>(pi_i: DecompProof<E>) -> Result<Vec<u8>, PVSSError<E>> {
     let mut message_writer = Cursor::new(vec![]);
     pi_i.serialize(&mut message_writer)?;
@@ -71,9 +62,7 @@ pub fn message_from_pi_i<E: PairingEngine>(pi_i: DecompProof<E>) -> Result<Vec<u
 
 impl<
         E: PairingEngine,
-        // SPOK: BatchVerifiableSignatureScheme<PublicKey = E::G1Affine, Secret = Scalar<E>>,
-        SSIG: BatchVerifiableSignatureScheme<PublicKey = E::G2Affine, Secret = Scalar<E>>,
-    > PVSSTranscript<E, SSIG>   // 
+    > PVSSTranscript<E>
 {
     // Function for generating a new PVSSTranscript instance.
     pub fn empty(degree: usize, num_participants: usize) -> Self {
@@ -85,7 +74,7 @@ impl<
         }
     }
 
-    // Method for aggregating PVSS transcripts.
+    // Method for aggregating two PVSS transcripts.
     pub fn aggregate(&self, other: &Self) -> Result<Self, PVSSError<E>> {
 	// Ensure that both PVSS transcripts are w.r.t. a common configuration
         if self.degree != other.degree || self.num_participants != other.num_participants {
@@ -97,8 +86,8 @@ impl<
             ));
         }
 
-	// 
-        let contributions = (0..self.num_participants)   // this seems to be a bit inefficient...
+	// Combine contributions of self and other into a single BTreeMap
+        let contributions = (0..self.num_participants)   // this is: n x amortized O(1)
             .map(
                 |i| match (self.contributions.get(&i), other.contributions.get(&i)) {
                     (Some(a), Some(b)) => {
