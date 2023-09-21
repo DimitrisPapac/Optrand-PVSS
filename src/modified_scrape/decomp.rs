@@ -37,7 +37,7 @@ impl<E: PairingEngine> Decomp<E> {
 	let generator = config.srs.g2;
 	let gs = generator.mul(secret.into_repr()).into_affine();
 
-	let dlk_srs = DLKSRS::<ProofGroup::<E>> { g_public_key: generator };   // maybe generator.clone()???
+	let dlk_srs = DLKSRS::<ProofGroup::<E>> { g_public_key: generator };
 	let dlk = DLKProof { srs: dlk_srs };   // initialize proof system for DLK NIZKs.
 
 	// Double-check with Adithya's code for Dleq for increased efficiency/security.
