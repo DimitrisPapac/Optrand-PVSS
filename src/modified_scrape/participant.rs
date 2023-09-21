@@ -1,7 +1,6 @@
-use crate::signature::scheme::BatchVerifiableSignatureScheme;
+use crate::Signature;
 use ark_ec::PairingEngine;
 use std::marker::PhantomData;
-use crate::Scalar;
 
 // Struct ParticipantState models the states that each participant in the PVSS
 // scheme goes through.
@@ -17,10 +16,9 @@ pub enum ParticipantState {
 #[derive(Clone)]
 pub struct Participant<
     E: PairingEngine,
-    SSIG: BatchVerifiableSignatureScheme<PublicKey = E::G2Affine, Secret = Scalar<E>>,
 > {
     pub pairing_type: PhantomData<E>,
     pub id: usize,                         // participant id
-    pub public_key_sig: SSIG::PublicKey,   // participant public key
+    pub public_key_sig: Signature,
     pub state: ParticipantState,           // participant current state
 }
