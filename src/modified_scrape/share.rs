@@ -1,19 +1,17 @@
 use crate::{
     modified_scrape::{errors::PVSSError, pvss::PVSSShare, decomp::DecompProof},
-    Serialize,
-    Deserialize,
     Signature,
 };
 
 use ark_ec::PairingEngine;
-use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Read, SerializationError, Write};
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, SerializationError, Read, Write};
 use ark_std::collections::BTreeMap;
 use std::io::Cursor;
 
 
 // PVSSAugmentedShare represents a PVSSShare that has been augmented to include the origin's id,
 // as well as a signature on the decomposition proof included in the core PVSS share.
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(CanonicalSerialize, CanonicalDeserialize, Clone)]
 pub struct PVSSAugmentedShare<E>
 where
     E: PairingEngine,
@@ -27,7 +25,7 @@ where
 
 // PVSSTranscript represents the transcripts obtained by each aggregator instance
 // during execution of the PVSS protocol.
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(CanonicalSerialize, CanonicalDeserialize, Clone)]
 pub struct PVSSTranscript<E>
 where
     E: PairingEngine,
@@ -42,7 +40,7 @@ where
 
 
 // PVSSTranscriptParticipant represents a "contribution" of an individual protocol participant.
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(CanonicalSerialize, CanonicalDeserialize, Clone)]
 pub struct PVSSTranscriptParticipant<
     E: PairingEngine,
 > {
