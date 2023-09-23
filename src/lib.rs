@@ -15,10 +15,11 @@ use ed25519_dalek::ed25519;
 use ed25519_dalek::Signer as _;
 use rand::rngs::OsRng;
 use rand::{CryptoRng, RngCore};
-use serde::{de, ser, Deserialize, Serialize};
+//use serde::{de, ser, Deserialize, Serialize};
 use std::array::TryFromSliceError;
 use std::convert::{TryFrom, TryInto};
 use std::fmt;
+use ark_serialize::{CanonicalSerialize, CanonicalDeserialize, SerializationError, Read, Write};
 
 /*
 use tokio::sync::mpsc::{channel, Sender};
@@ -48,7 +49,7 @@ pub type Polynomial<E> = DensePolynomial<Scalar<E>>;
 
 pub type CryptoError = ed25519::Error;
 
-#[derive(Hash, PartialEq, Default, Eq, Clone, Deserialize, Serialize)]
+#[derive(Hash, PartialEq, Default, Eq, Clone, CanonicalSerialize, CanonicalDeserialize)]
 pub struct Digest(pub [u8; 32]);
 
 impl Digest {
@@ -90,7 +91,7 @@ pub trait Hash {
     fn digest(&self) -> Digest;
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Hash, Ord, PartialOrd, Default)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Ord, PartialOrd, Default, CanonicalSerialize, CanonicalDeserialize)]
 pub struct PublicKey(pub [u8; 32]);
 
 impl PublicKey {
@@ -119,6 +120,7 @@ impl fmt::Display for PublicKey {
     }
 }
 
+/*
 impl Serialize for PublicKey {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -138,8 +140,9 @@ impl<'de> Deserialize<'de> for PublicKey {
         Ok(value)
     }
 }
+*/
 
-#[derive(Clone)]
+#[derive(Clone, CanonicalSerialize, CanonicalDeserialize)]
 pub struct SecretKey([u8; 64]);
 
 impl SecretKey {
@@ -156,6 +159,7 @@ impl SecretKey {
     }
 }
 
+/*
 impl Serialize for SecretKey {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -175,6 +179,7 @@ impl<'de> Deserialize<'de> for SecretKey {
         Ok(value)
     }
 }
+*/
 
 impl Drop for SecretKey {
     fn drop(&mut self) {
@@ -197,7 +202,7 @@ where
 }
 
 // Struct representing an EdDSA signature.
-#[derive(Clone, Default, Debug)]
+#[derive(Clone, Default, Debug, CanonicalSerialize, CanonicalDeserialize)]
 pub struct Signature {
     part1: [u8; 32],
     part2: [u8; 32],
@@ -249,6 +254,7 @@ impl Signature {
     
 }
 
+/*
 impl Serialize for Signature {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -257,7 +263,7 @@ impl Serialize for Signature {
         serializer.serialize_str(&self.to_base64())
     }
 }
-
+*/
 
 
 
