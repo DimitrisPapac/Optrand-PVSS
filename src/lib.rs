@@ -49,8 +49,9 @@ pub type Polynomial<E> = DensePolynomial<Scalar<E>>;
 
 pub type CryptoError = ed25519::Error;
 
-#[derive(Hash, PartialEq, Default, Eq, Clone, CanonicalSerialize, CanonicalDeserialize)]
-pub struct Digest(pub [u8; 32]);
+
+#[derive(Hash, PartialEq, Default, Eq, Clone)]
+pub struct Digest(pub [u8; 32 as usize]);
 
 impl Digest {
     pub fn to_vec(&self) -> Vec<u8> {
@@ -87,12 +88,43 @@ impl TryFrom<&[u8]> for Digest {
     }
 }
 
+impl CanonicalSerialize for Digest {
+    #[inline]
+    fn serialize<W: Write>(
+    &self,
+    mut writer: W,
+    ) -> Result<(), SerializationError> {
+        for item in self.0.iter() {
+            item.serialize(&mut writer)?;   // item.serialize(&mut writer)?;
+        }
+	    Ok(())
+    }
+
+    fn serialized_size(&self) -> usize {
+        self.0.iter()
+            .map(|item| item.serialized_size())
+            .sum::<usize>()
+    }
+}
+
+impl CanonicalDeserialize for Digest {
+    #[inline]
+    fn deserialize<R: Read>(mut reader: R) -> Result<Self, SerializationError> {
+        let result = Digest( core::array::from_fn(|_| {
+            u8::deserialize(&mut reader).unwrap()
+        }) );
+        Ok(result)
+    }
+}
+
 pub trait Hash {
     fn digest(&self) -> Digest;
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Hash, Ord, PartialOrd, Default, CanonicalSerialize, CanonicalDeserialize)]
-pub struct PublicKey(pub [u8; 32]);
+/* Struct PublicKey models the public (verification) key for the EdDSA signature scheme. */
+
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Ord, PartialOrd, Default)]
+pub struct PublicKey(pub [u8; 32 as usize]);
 
 impl PublicKey {
     pub fn to_base64(&self) -> String {
@@ -108,6 +140,26 @@ impl PublicKey {
     }
 }
 
+impl CanonicalSerialize for PublicKey {
+    #[inline]
+    fn serialize<W: Write>(
+    &self,
+    mut writer: W,
+    ) -> Result<(), SerializationError> {
+	    // self.0.serialize_with_mode(&mut writer, compress)
+	    for item in self.0.iter() {
+            item.serialize(&mut writer)?;
+        }
+	    Ok(())
+    }
+
+    fn serialized_size(&self) -> usize {
+	    self.0.iter()
+            .map(|item| item.serialized_size())
+            .sum::<usize>()
+    }
+}
+
 impl fmt::Debug for PublicKey {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         write!(f, "{}", self.to_base64())
@@ -120,30 +172,10 @@ impl fmt::Display for PublicKey {
     }
 }
 
-/*
-impl Serialize for PublicKey {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: ser::Serializer,
-    {
-        serializer.serialize_str(&self.to_base64())
-    }
-}
+/* Struct SecretKey models the secret (signing) key of the EdDSA signature scheme. */
 
-impl<'de> Deserialize<'de> for PublicKey {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: de::Deserializer<'de>,
-    {
-        let s = String::deserialize(deserializer)?;
-        let value = Self::from_base64(&s).map_err(|e| de::Error::custom(e.to_string()))?;
-        Ok(value)
-    }
-}
-*/
-
-#[derive(Clone, CanonicalSerialize, CanonicalDeserialize)]
-pub struct SecretKey([u8; 64]);
+#[derive(Clone)]
+pub struct SecretKey([u8; 64 as usize]);
 
 impl SecretKey {
     pub fn to_base64(&self) -> String {
@@ -159,31 +191,40 @@ impl SecretKey {
     }
 }
 
-/*
-impl Serialize for SecretKey {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: ser::Serializer,
-    {
-        serializer.serialize_str(&self.to_base64())
-    }
-}
-
-impl<'de> Deserialize<'de> for SecretKey {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: de::Deserializer<'de>,
-    {
-        let s = String::deserialize(deserializer)?;
-        let value = Self::from_base64(&s).map_err(|e| de::Error::custom(e.to_string()))?;
-        Ok(value)
-    }
-}
-*/
 
 impl Drop for SecretKey {
     fn drop(&mut self) {
         self.0.iter_mut().for_each(|x| *x = 0);
+    }
+}
+
+impl CanonicalSerialize for SecretKey {
+    #[inline]
+    fn serialize<W: Write>(
+    &self,
+    mut writer: W,
+    ) -> Result<(), SerializationError> {
+	    // self.0.serialize_with_mode(&mut writer, compress)
+	    for item in self.0.iter() {
+            item.serialize(&mut writer)?;
+        }
+	    Ok(())
+    }
+
+    fn serialized_size(&self) -> usize {
+	    self.0.iter()
+            .map(|item| item.serialized_size())
+            .sum::<usize>()
+    }
+}
+
+impl CanonicalDeserialize for SecretKey {
+    #[inline]
+    fn deserialize<R: Read>(mut reader: R) -> Result<Self, SerializationError> {
+        let result = SecretKey( core::array::from_fn(|_| {
+            u8::deserialize(&mut reader).unwrap()
+        }) );
+        Ok(result)
     }
 }
 
@@ -201,8 +242,9 @@ where
     (public, secret)
 }
 
-// Struct representing an EdDSA signature.
-#[derive(Clone, Default, Debug, CanonicalSerialize, CanonicalDeserialize)]
+/* Struct representing an EdDSA signature. */
+
+#[derive(Clone, Default, Debug)]
 pub struct Signature {
     part1: [u8; 32],
     part2: [u8; 32],
@@ -250,20 +292,44 @@ impl Signature {
     pub fn to_base64(&self) -> String {
         base64::encode(&self.flatten())
     }
-
-    
 }
 
-/*
-impl Serialize for Signature {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: ser::Serializer,
-    {
-        serializer.serialize_str(&self.to_base64())
+impl CanonicalSerialize for Signature {
+    #[inline]
+    fn serialize<W: Write>(
+    &self,
+    mut writer: W,
+    ) -> Result<(), SerializationError> {
+	    for item in self.part1.iter() {
+            item.serialize(&mut writer)?;
+        }
+        for item in self.part2.iter() {
+            item.serialize(&mut writer)?;
+        }
+	    Ok(())
+    }
+
+    fn serialized_size(&self) -> usize {
+	    self.part1.iter()
+            .map(|item| item.serialized_size())
+            .sum::<usize>() +
+        self.part2.iter()
+            .map(|item| item.serialized_size())
+            .sum::<usize>()
     }
 }
-*/
+
+impl CanonicalDeserialize for Signature {
+    #[inline]
+    fn deserialize<R: Read>(mut reader: R) -> Result<Self, SerializationError> {
+        let result: [u8; 64 as usize] = core::array::from_fn(|_| {
+            u8::deserialize(&mut reader).unwrap()
+        });
+        let pt1 = result[..32].try_into().expect("Unexpected signature length");
+        let pt2 = result[32..64].try_into().expect("Unexpected signature length");
+        Ok(Signature {part1: pt1, part2: pt2} )
+    }
+}
 
 
 
