@@ -11,8 +11,8 @@ pub struct PVSSShare<E>
 where
     E: PairingEngine,
 {
-    pub comms: Vec<E::G2Projective>,    	     // vector of commitments v
-    pub encs: Vec<E::G1Projective>,     	     // vector of encryptions c
+    pub encs: Vec<E::G1Projective>,   // vector of encryptions c
+    pub comms: Vec<E::G2Projective>,  // vector of commitments v
 }
 
 impl<E> PVSSShare<E>
@@ -23,8 +23,8 @@ where
     // Create a new "empty" PVSSShare, where all fields are set to "zero" values.
     pub fn empty(_degree: usize, num_participants: usize) -> Self {
         PVSSShare {
-	    comms: vec![E::G2Projective::zero(); num_participants],
-	    encs: vec![E::G1Projective::zero(); num_participants]
+	    encs: vec![E::G1Projective::zero(); num_participants],
+	    comms: vec![E::G2Projective::zero(); num_participants]
         }
     }
 
