@@ -14,6 +14,7 @@ use crate::modified_scrape::share::{PVSSTranscript, PVSSAugmentedShare};
 use super::poly::{Polynomial, lagrange_interpolation, lagrange_interpolation_simple, ensure_degree};
 use super::decryption::DecryptedShare;
 use crate::{GT, Scalar};
+use crate::Signature;
 
 use ark_ec::{AffineCurve, PairingEngine, ProjectiveCurve};
 use ark_ff::{Field, PrimeField, UniformRand};
