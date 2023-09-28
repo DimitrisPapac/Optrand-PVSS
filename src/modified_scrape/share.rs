@@ -1,6 +1,6 @@
 use crate::{
     modified_scrape::{errors::PVSSError, pvss::PVSSShare, decomp::DecompProof},
-    Signature,
+    Signature,  // EdDSA signature
 };
 
 use ark_ec::PairingEngine;
@@ -19,7 +19,7 @@ where
     pub participant_id: usize,            // issuer of the augmented share
     pub pvss_share: PVSSShare<E>,         // "core" PVSS share
     pub decomp_proof: DecompProof<E>,     // proof of knowledge of shared secret
-    pub signature_on_decomp: Signature,   // signed knowledge proof
+    pub signature_on_decomp: Signature,   // EdDSA-signed knowledge proof
 }
 
 
@@ -32,8 +32,6 @@ where
 {
     pub degree: usize,
     pub num_participants: usize,
-
-    // "contributions" isn't a very fitting name IMO...
     pub contributions: BTreeMap<usize, PVSSTranscriptParticipant<E>>,
     pub pvss_share: PVSSShare<E>,
 }
@@ -74,7 +72,7 @@ impl<
 
     // Method for aggregating two PVSS transcripts.
     pub fn aggregate(&self, other: &Self) -> Result<Self, PVSSError<E>> {
-	// Ensure that both PVSS transcripts are w.r.t. a common configuration
+	    // Ensure that both PVSS transcripts are w.r.t. a common configuration
         if self.degree != other.degree || self.num_participants != other.num_participants {
             return Err(PVSSError::TranscriptDifferentConfig(
                 self.degree,
@@ -84,7 +82,7 @@ impl<
             ));
         }
 
-	// Combine contributions of self and other into a single BTreeMap
+	    // Combine contributions of self and other into a single BTreeMap.
         let contributions = (0..self.num_participants)   // this is: n x amortized O(1)
             .map(
                 |i| match (self.contributions.get(&i), other.contributions.get(&i)) {
@@ -93,6 +91,7 @@ impl<
                             return Err(PVSSError::TranscriptDifferentCommitments);
                         }
                         let transcript_participant = PVSSTranscriptParticipant {
+			                // Only keep a's proof and signature
                             decomp_proof: a.decomp_proof,
                             signature_on_decomp: a.signature_on_decomp.clone(),
                         };
@@ -112,7 +111,7 @@ impl<
             degree: self.degree,
             num_participants: self.num_participants,
             contributions: contributions.into_iter().collect(),
-            pvss_share: self.pvss_share.aggregate(&other.pvss_share).unwrap(),   // aggregate the core PVSS shares
+            pvss_share: self.pvss_share.aggregate(&other.pvss_share).unwrap(),   // aggregate the two core PVSS shares
         };
 
         Ok(aggregated_tx)
