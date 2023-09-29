@@ -52,6 +52,10 @@ pub enum PVSSError<E: PairingEngine> {
     DecompositionInTranscriptError,
     #[error("Aggregated gs from transcript does not match reconstruction")]
     AggregationReconstructionMismatchError,
+    #[error("EdDSA signature is invalid")]
+    EdDSAInvalidSignatureError,
+    #[error("EdDSA batch of signatures is invalid")]
+    EdDSAInvalidSignatureBatchError,
 
 
     #[error("Ratio incorrect")]
