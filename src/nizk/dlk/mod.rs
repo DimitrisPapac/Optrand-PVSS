@@ -1,4 +1,3 @@
-//use crate::signature::schnorr::srs::SRS;   // Same SRS as Schnorr's signature scheme
 use super::dlk::srs::SRS;
 use crate::nizk::{scheme::NIZKProof, utils::{errors::NIZKError, hash::hash_to_field}};
 
@@ -8,6 +7,8 @@ use ark_ff::{PrimeField, UniformRand};
 use std::fmt::Debug;
 use rand::Rng;
 
+use std::hash::Hash;
+
 pub mod srs;
 
 
@@ -15,7 +16,7 @@ const PERSONALIZATION: &[u8] = b"DLKNIZK";   // persona for the DLK NIZK proof s
 
 // DLKProof type wraps around the SRS and represents the scheme's
 // system-wide parameters.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Hash)]
 pub struct DLKProof<C: AffineCurve> {
     pub srs: SRS<C>,   // same SRS as the Schnorr signature scheme
 }
@@ -126,7 +127,7 @@ impl<C: AffineCurve> NIZKProof for DLKProof<C> {
 
 #[cfg(test)]
 mod test {
-    use crate::signature::{utils::tests::check_serialization};   // schnorr::srs::SRS
+    use crate::signature::{utils::tests::check_serialization};
     use crate::nizk::{dlk::{DLKProof, srs::SRS}, scheme::NIZKProof};
 
     use ark_ff::{PrimeField, UniformRand};
