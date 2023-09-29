@@ -7,17 +7,18 @@ use crate::{
         participant::{Participant, ParticipantState},
         pvss::{PVSSCore, PVSSShareSecrets},
 	share::{PVSSAggregatedShare, PVSSShare},
-	decomp::{Decomp, DecompProof, message_from_pi_i},
+	decomp::{Decomp},   // DecompProof, message_from_pi_i
     },
     signature::scheme::BatchVerifiableSignatureScheme,
 };
 
-use super::poly::{Polynomial, lagrange_interpolation, lagrange_interpolation_simple, ensure_degree};
-use super::decryption::DecryptedShare;
-use crate::{GT, Scalar, Signature};
+use super::poly::{Polynomial};   // lagrange_interpolation, lagrange_interpolation_simple, ensure_degree
+// use super::decryption::DecryptedShare;
+use crate::{Scalar, Signature};   // GT, 
 
 use ark_ec::{AffineCurve, PairingEngine, ProjectiveCurve};
-use ark_ff::{Field, PrimeField, UniformRand};
+use ark_ff::{PrimeField, UniformRand};   // Field, 
+use ark_std::ops::AddAssign;
 
 use rand::Rng;
 use std::collections::BTreeMap;
@@ -28,18 +29,21 @@ use std::collections::BTreeMap;
 *  sent from other parties. Hence, they have characteristics from both.
 */
 
-pub struct Node<
+pub struct Node<E, SSIG>
+where
     E: PairingEngine,
+    <E as PairingEngine>::G2Affine: AddAssign,
     SSIG: BatchVerifiableSignatureScheme<PublicKey = E::G1Affine, Secret = Scalar<E>>,
-> {
+{
     pub aggregator: PVSSAggregator<E, SSIG>,    // the aggregator aspect of the node
     pub dealer: Dealer<E, SSIG>,                // the dealer aspect of the node
 }
 
-impl<
-        E: PairingEngine,
-        SSIG: BatchVerifiableSignatureScheme<PublicKey = E::G1Affine, Secret = Scalar<E>>,
-    > Node<E, SSIG>
+impl<E, SSIG> Node<E, SSIG>
+where
+    E: PairingEngine,
+    <E as PairingEngine>::G2Affine: AddAssign,
+    SSIG: BatchVerifiableSignatureScheme<PublicKey = E::G1Affine, Secret = Scalar<E>>,
 {
 
     // Function for creating a new node in the PVSS sharing protocol.
@@ -133,13 +137,6 @@ impl<
 
 	// Generate decomposition proof.
 	let decomp_proof = Decomp::<E>::generate(rng, &self.aggregator.config, &pvss_share_secrets.p_0).unwrap();
-
-	// Use the (private) signing key contained in the dealer instance to also compute
-	// the public key w.r.t. the signature scheme indicated by the aggregator instance.
-	//let signature_keypair = self
-        //        .aggregator
-        //        .scheme_sig
-        //        .from_sk(&(self.dealer.private_key_sig))?;
 
         let digest = decomp_proof.digest();
 
