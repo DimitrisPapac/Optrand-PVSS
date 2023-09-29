@@ -8,7 +8,6 @@ use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, SerializationError
 use ark_std::collections::BTreeMap;
 use std::io::Cursor;
 
-
 /* PVSSShare represents a PVSSCore instance that has been augmented to include the origin's id,
    as well as a signature on the decomposition proof included in the core PVSS share. */
 #[derive(CanonicalSerialize, CanonicalDeserialize, Clone)]
@@ -29,8 +28,8 @@ pub struct SignedProof<E>
 where
     E: PairingEngine,
 {
-    decomp_proof: DecompProof<E>,
-    signature_on_decomp: Signature,
+    pub decomp_proof: DecompProof<E>,
+    pub signature_on_decomp: Signature,
 }
 
 /* Struct PVSSAggregatedShare represents an aggregation of PVSS shares. */
@@ -72,6 +71,7 @@ impl<E: PairingEngine> PVSSAggregatedShare<E>
     }
 
     // Method for aggregating two PVSS aggregated shares.
+    // Returns the resulting aggregated PVSS share.
     pub fn aggregate(&self, other: &Self) -> Result<Self, PVSSError<E>> {
 	// Ensure that both PVSS aggregated shares are under a common configuration.
         if self.degree != other.degree || self.num_participants != other.num_participants {
@@ -115,6 +115,26 @@ impl<E: PairingEngine> PVSSAggregatedShare<E>
             contributions: contributions.into_iter().collect(),
         };
 
+	// Return the aggregate of the two aggregated PVSS shares.
         Ok(aggregated_share)
+    }
+
+    // Method for aggregating a PVSS share to an aggregated PVSS share.
+    // Returns the resulting aggregated PVSS share.
+    pub fn aggregate_pvss_share(&self, other: &PVSSShare<E>) -> Result<Self, PVSSError<E>> {
+	// Convert other from a PVSSShare instance into a PVSSAggregatedShare instance.
+	let mut contribs = BTreeMap::new();
+	contribs.insert(other.participant_id, SignedProof{ decomp_proof: other.decomp_proof,
+							   signature_on_decomp: other.signature_on_decomp});
+
+	let other_agg_share = Self {
+            num_participants: self.num_participants,
+	    degree: self.degree,
+            pvss_core: other.pvss_core.clone(),
+            contributions: contribs,
+        };
+
+	// Return the aggregate of the two aggregated PVSS shares.
+	self.aggregate(&other_agg_share)
     }
 }
