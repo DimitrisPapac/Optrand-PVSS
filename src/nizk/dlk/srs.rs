@@ -3,7 +3,9 @@ use ark_ec::AffineCurve;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Read, SerializationError, Write};
 use rand::Rng;
 
-#[derive(Debug, CanonicalSerialize, CanonicalDeserialize, Clone, PartialEq)]
+use std::hash::Hash;
+
+#[derive(Debug, CanonicalSerialize, CanonicalDeserialize, Clone, PartialEq, Hash)]
 pub struct SRS<C: AffineCurve> {
     pub g_public_key: C,   // group generator
 }
