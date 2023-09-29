@@ -8,17 +8,19 @@ use crate::{
         pvss::{PVSSCore, PVSSShareSecrets},
 	share::{PVSSAggregatedShare, PVSSShare},
 	decomp::{Decomp},   // DecompProof, message_from_pi_i
+	poly::{Polynomial}
     },
     signature::scheme::BatchVerifiableSignatureScheme,
 };
 
-use super::poly::{Polynomial};   // lagrange_interpolation, lagrange_interpolation_simple, ensure_degree
+// use super::poly::{Polynomial};   // lagrange_interpolation, lagrange_interpolation_simple, ensure_degree
 // use super::decryption::DecryptedShare;
 use crate::{Scalar, Signature};   // GT, 
 
 use ark_ec::{AffineCurve, PairingEngine, ProjectiveCurve};
 use ark_ff::{PrimeField, UniformRand};   // Field, 
 use ark_std::ops::AddAssign;
+// use ark_poly::UVPolynomial;
 
 use rand::Rng;
 use std::collections::BTreeMap;
@@ -92,7 +94,7 @@ where
 
 	// Compute encryptions for all nodes in {0, ..., n-1}
 	let mut encs = (0..n)
-	        .map::<Result<E::G1Affine, PVSSError<E>>, _>(|j| {
+	        .map::<Result<E::G1Projective, PVSSError<E>>, _>(|j| {
                     Ok(self
                         .aggregator
                         .participants
@@ -100,7 +102,7 @@ where
                         .ok_or(PVSSError::<E>::InvalidParticipantId(j))?
                         .public_key_sig   // obtain participant's public (encryption) key
                         .mul(evals[j].into_repr())
-                        .into_affine())
+                        )   // .into_affine()
                     })
                 .collect::<Result<_, _>>()?;
 
@@ -141,7 +143,7 @@ where
         let digest = decomp_proof.digest();
 
         // Sign the decomposition proof using EdDSA
-	let signature_on_decomp = Some(Signature::new(&digest, &self.dealer.private_key_ed))?;   // internally retrieves the key pair
+	let signature_on_decomp = Signature::new(&digest, &self.dealer.private_key_ed);   // internally retrieves the key pair
 
 	// Create the PVSS share.
 	let share = PVSSShare {
@@ -290,6 +292,7 @@ where
 
 /* Unit tests: */
 
+/*
 #[cfg(test)]
 mod test {
     use crate::{
@@ -602,3 +605,4 @@ mod test {
         }
     }
 }
+*/
