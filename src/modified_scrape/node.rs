@@ -8,7 +8,7 @@ use crate::{
         pvss::{PVSSCore, PVSSShareSecrets},
 	share::{PVSSAggregatedShare, PVSSShare},
 	decomp::{Decomp},   // DecompProof, message_from_pi_i
-	poly::{Polynomial}
+	poly::{Polynomial as Poly}
     },
     signature::scheme::BatchVerifiableSignatureScheme,
 };
@@ -20,7 +20,7 @@ use crate::{Scalar, Signature};   // GT,
 use ark_ec::{AffineCurve, PairingEngine, ProjectiveCurve};
 use ark_ff::{PrimeField, UniformRand};   // Field, 
 use ark_std::ops::AddAssign;
-// use ark_poly::UVPolynomial;
+use ark_poly::{Polynomial, UVPolynomial};
 
 use rand::Rng;
 use std::collections::BTreeMap;
@@ -79,7 +79,7 @@ where
 	let n = self.aggregator.config.num_participants;
 
 	// Sample a random degree t polynomial
-	let poly = Polynomial::<E>::rand(t, rng);
+	let poly = Poly::<E>::rand(t, rng);
 
 	// Evaluate poly(j) for all j in {1, ..., n}
 	let mut evals = (1..n+1)
