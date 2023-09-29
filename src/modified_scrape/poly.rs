@@ -1,15 +1,14 @@
 use super::errors::PVSSError;
+use crate::Scalar;
 
-use ark_ff::{Field, Zero, One};
+use ark_ff::{Field, Zero, One, PrimeField};
 use ark_ec::{PairingEngine, ProjectiveCurve};
 use ark_poly::{UVPolynomial, Polynomial as Poly, polynomial::univariate::DensePolynomial};
 use ark_std::ops::AddAssign;
-use ark_ff::PrimeField;
-use crate::Scalar;
-
 // use ark_std::ops::{Add, Mul};
 
 use rand::Rng;
+
 
 // A polynomial with the various coefficients in the Scalar Group
 pub type Polynomial<E> = DensePolynomial<Scalar<E>>;
