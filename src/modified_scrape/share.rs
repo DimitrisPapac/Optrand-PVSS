@@ -1,5 +1,5 @@
 use crate::{
-    modified_scrape::{errors::PVSSError, pvss::PVSSShare, decomp::DecompProof},
+    modified_scrape::{errors::PVSSError, pvss::PVSSCore, decomp::DecompProof},
     Signature,  // EdDSA signature
 };
 
@@ -9,41 +9,44 @@ use ark_std::collections::BTreeMap;
 use std::io::Cursor;
 
 
-// PVSSAugmentedShare represents a PVSSShare that has been augmented to include the origin's id,
-// as well as a signature on the decomposition proof included in the core PVSS share.
+/* PVSSShare represents a PVSSCore instance that has been augmented to include the origin's id,
+   as well as a signature on the decomposition proof included in the core PVSS share. */
 #[derive(CanonicalSerialize, CanonicalDeserialize, Clone)]
-pub struct PVSSAugmentedShare<E>
+pub struct PVSSShare<E>
 where
     E: PairingEngine,
 {
-    pub participant_id: usize,            // issuer of the augmented share
-    pub pvss_share: PVSSShare<E>,         // "core" PVSS share
+    pub participant_id: usize,            // issuer of this PVSS share
+    pub pvss_core: PVSSCore<E>,           // "core" of the PVSS share
     pub decomp_proof: DecompProof<E>,     // proof of knowledge of shared secret
     pub signature_on_decomp: Signature,   // EdDSA-signed knowledge proof
 }
 
-
-// PVSSTranscript represents the transcripts obtained by each aggregator instance
-// during execution of the PVSS protocol.
+/* Struct SignedProof represents a pair consisting of a decomposition proof along with
+   a signature on it. */
 #[derive(CanonicalSerialize, CanonicalDeserialize, Clone)]
-pub struct PVSSTranscript<E>
+pub struct SignedProof<E>
 where
     E: PairingEngine,
 {
-    pub degree: usize,
-    pub num_participants: usize,
-    pub contributions: BTreeMap<usize, PVSSTranscriptParticipant<E>>,
-    pub pvss_share: PVSSShare<E>,
+    decomp_proof: DecompProof<E>,
+    signature_on_decomp: Signature,
 }
 
-
-// PVSSTranscriptParticipant represents a "contribution" of an individual protocol participant.
+/* Struct PVSSAggregatedShare represents an aggregation of PVSS shares. */
 #[derive(CanonicalSerialize, CanonicalDeserialize, Clone)]
-pub struct PVSSTranscriptParticipant<
+pub struct PVSSAggregatedShare<E>
+where
     E: PairingEngine,
-> {
-    pub decomp_proof: DecompProof<E>,           // contains gs
-    pub signature_on_decomp: Signature,   
+{
+    pub num_participants: usize,
+    pub degree: usize,
+    pub pvss_core: PVSSCore<E>,                           // "core" of the aggregated PVSS sharing
+    pub contributions: BTreeMap<usize, SignedProof<E>>,   // combination of the three following fields
+
+    // pub id_vec: Vec<usize>,                     // vector of participant ids whose shares have been pooled together
+    // pub decomp_proofs: Vec<DecompProof<E>>,     // accumulation of decomposition proofs
+    // pub signatures_on_decomps: Vec<Signature>,  // accumulation of signatures on decomposition proofs
 }
 
 
@@ -56,23 +59,21 @@ pub fn message_from_pi_i<E: PairingEngine>(pi_i: DecompProof<E>) -> Result<Vec<u
 }
 
 
-impl<
-        E: PairingEngine,
-    > PVSSTranscript<E>
+impl<E: PairingEngine> PVSSAggregatedShare<E>
 {
-    // Function for generating a new PVSSTranscript instance.
+    // Function for generating a new (empty) PVSSAggregatedShare instance.
     pub fn empty(degree: usize, num_participants: usize) -> Self {
         Self {
-            degree,
-            num_participants,
-            contributions: BTreeMap::new(),
-            pvss_share: PVSSShare::empty(degree, num_participants),
+	    num_participants: num_participants,
+	    degree: degree,
+	    pvss_core: PVSSCore::empty(degree, num_participants),
+	    contributions: BTreeMap::new(),
         }
     }
 
-    // Method for aggregating two PVSS transcripts.
+    // Method for aggregating two PVSS aggregated shares.
     pub fn aggregate(&self, other: &Self) -> Result<Self, PVSSError<E>> {
-	    // Ensure that both PVSS transcripts are w.r.t. a common configuration
+	// Ensure that both PVSS aggregated shares are under a common configuration.
         if self.degree != other.degree || self.num_participants != other.num_participants {
             return Err(PVSSError::TranscriptDifferentConfig(
                 self.degree,
@@ -82,7 +83,7 @@ impl<
             ));
         }
 
-	    // Combine contributions of self and other into a single BTreeMap.
+	// Combine contributions of self and other into a single BTreeMap.
         let contributions = (0..self.num_participants)   // this is: n x amortized O(1)
             .map(
                 |i| match (self.contributions.get(&i), other.contributions.get(&i)) {
@@ -90,12 +91,12 @@ impl<
                         if a.decomp_proof.gs != b.decomp_proof.gs {
                             return Err(PVSSError::TranscriptDifferentCommitments);
                         }
-                        let transcript_participant = PVSSTranscriptParticipant {
-			                // Only keep a's proof and signature
+                        let signed_proof = SignedProof {
+			    // Only keep a's decomposition proof and signature
                             decomp_proof: a.decomp_proof,
                             signature_on_decomp: a.signature_on_decomp.clone(),
                         };
-                        Ok(Some((i, transcript_participant)))
+                        Ok(Some((i, signed_proof)))
                     }
                     (Some(a), None) => Ok(Some((i, a.clone()))),
                     (None, Some(b)) => Ok(Some((i, b.clone()))),
@@ -107,13 +108,13 @@ impl<
             .filter_map(|e| e)
             .collect::<Vec<_>>();
 
-        let aggregated_tx = Self {
-            degree: self.degree,
+        let aggregated_share = Self {
             num_participants: self.num_participants,
+	    degree: self.degree,
+            pvss_core: self.pvss_core.aggregate(&other.pvss_core).unwrap(),   // aggregate the two cores of PVSS shares
             contributions: contributions.into_iter().collect(),
-            pvss_share: self.pvss_share.aggregate(&other.pvss_share).unwrap(),   // aggregate the two core PVSS shares
         };
 
-        Ok(aggregated_tx)
+        Ok(aggregated_share)
     }
 }
