@@ -1,10 +1,10 @@
 use crate::modified_scrape::poly::{ensure_degree, lagrange_interpolation_simple};   // poly::Polynomial, lagrange_interpolation
 use crate::modified_scrape::errors::PVSSError;
-use crate::modified_scrape::pvss::PVSSShare;
-use crate::modified_scrape::share::{PVSSTranscript, PVSSTranscriptParticipant, PVSSAugmentedShare};
+use crate::modified_scrape::pvss::PVSSCore;
+use crate::modified_scrape::share::{PVSSAggregatedShare, PVSSShare};
 use crate::modified_scrape::participant::Participant;
-use crate::signature::scheme::BatchVerifiableSignatureScheme;
 use crate::modified_scrape::decomp::{DecompProof, message_from_pi_i};
+use crate::signature::scheme::BatchVerifiableSignatureScheme;
 
 //use crate::modified_scrape::decomp::ProofGroup;
 
@@ -21,40 +21,145 @@ use ark_std::ops::AddAssign;
 use rand::Rng;
 use std::ops::Neg;
 
-
+/* A PVSSAggregator is responsible for receiving PVSS shares, verifying them, and
+   aggregating them to an aggregated transcript. */
 pub struct PVSSAggregator<E, SSIG>
 where
     E: PairingEngine,
     <E as PairingEngine>::G2Affine: AddAssign,
     SSIG: BatchVerifiableSignatureScheme<PublicKey = E::G1Affine, Secret = E::Fr>,
 {
-    pub config: Config<E>,
-    pub scheme_sig: SSIG,   // scheme for encryption
-    //pub ,   // EdDSA public key
-    pub participants: BTreeMap<usize, Participant<E, SSIG>>,   // maps ids to Participant instances
-    pub transcript: PVSSTranscript<E>,
+    pub config: Config<E>,                                     // the "global" configuration parameters
+    pub scheme_sig: SSIG,                                      // scheme for encryption
+    pub participants: BTreeMap<usize, Participant<E, SSIG>>,   // maps ids to Participant instances (incl. their pks)
+    pub aggregated_tx: PVSSAggregatedShare<E>,                 // aggregated transcript of PVSS shares
 }
 
 
 impl<E, SSIG> PVSSAggregator<E, SSIG>
 where
-	E: PairingEngine,
-	<E as PairingEngine>::G2Affine: AddAssign,
+    E: PairingEngine,
+    <E as PairingEngine>::G2Affine: AddAssign,
     SSIG: BatchVerifiableSignatureScheme<PublicKey = E::G1Affine, Secret = E::Fr>,
 {
-    // Method for handling a received augmented PVSS share instance.
-    // The share is aggregated into the aggregator's currently aggregated
-    // transcript.
+    // Utility method for verifying individual "core" PVSS shares against a commitment to some secret.
+    pub fn core_verify<R: Rng>(
+        &self,
+        rng: &mut R,
+	decomp_proof: &DecompProof<E>,   // need to pass on separately since cores do not have decomps attached
+        core: &PVSSCore<E>,
+    ) -> Result<(), PVSSError<E>> {
+
+	// Check that the sizes of commitments and encryptions are correct.
+	if core.encs.len() != self.config.num_participants ||
+           core.comms.len() != self.config.num_participants {
+	        return Err(PVSSError::MismatchedCommitsEncryptionsParticipantsError(core.encs.len(),
+			    core.comms.len(), self.config.num_participants));
+	}
+
+	// Coding check for the commitments to ensure that they represent a
+	// commitment to a degree t polynomial.
+	if ensure_degree::<E, _>(rng, &core.comms, self.config.degree as u64).is_err() {
+            return Err(PVSSError::DualCodeError);
+        }
+
+	// The pairing condition for correctness of encryption is: e(pk_i, v_i) = e(enc_i, g_2).
+	// NOTE: However, we do not have access to the sender's identity at this point (and by
+	// extension, its public key). Hence, this check is carried out in share_verify.
+
+        // Check decomposition proof.
+	let point = lagrange_interpolation_simple::<E>(&core.comms, self.config.degree as u64).unwrap();   // E::G2Projective
+
+	if point.into_affine() != decomp_proof.gs {
+	        return Err(PVSSError::GSCheckError);
+	}
+
+	// Verify decomposition proof against our config.
+        if decomp_proof.verify(&self.config).is_err() {
+	    return Err(PVSSError::DecompProofVerificationError);
+	}
+
+        Ok(())
+    }
+
+
+    // Method for verifying a received PVSSShare instance.
+    // Essentially performs the checks from "verify_sharing".
+    pub fn share_verify<R: Rng>(
+        &mut self,
+        rng: &mut R,
+        share: &PVSSShare<E>,
+    ) -> Result<(), PVSSError<E>> {
+
+        // Retrieve the Participant instance using the id within the augmented share.
+	let participant_id = share.participant_id;
+
+        let participant = self
+            .participants
+            .get(&participant_id)
+            .ok_or(PVSSError::<E>::InvalidParticipantId(participant_id))?;
+
+	// Verify correctness of encryption:
+	let pairs = [
+            (participant.public_key_sig.into(), share.pvss_share.comms[participant_id].into_affine().into()),
+            (share.pvss_share.encs[participant_id].neg().into_affine().into(), self.config.srs.g2.into()),
+        ];
+
+        if !E::product_of_pairings(pairs.iter()).is_one() {
+            return Err(PVSSError::EncryptionCorrectnessError);
+        }
+
+	// Verify the "core" PVSS share against the provided decomposition proof.
+	self.core_verify(rng, &share.decomp_proof, &share.pvss_share)?;
+
+        // Verify signature on decomposition proof against participant i's public key:
+	let digest = ......................................;
+
+	share.signature_on_decomp.verify(&digest, &participant.public_key_ed)?;
+
+        //self.scheme_sig.verify(
+        //    &participant.public_key_sig,
+        //    &message_from_pi_i(share.decomp_proof)?,
+        //    &share.signature_on_decomp,
+        //)?;
+
+        Ok(())
+    }
+
+
+    // Method for verifying aggregation in a PVSSAggregatedShare instance.
+    // Essentially performs the checks from "verify_aggregation".
+    pub fn aggregation_verify<R: Rng>(
+        &mut self,
+        rng: &mut R,
+        agg_share: &PVSSAggregatedShare<E>,
+    ) -> Result<(), PVSSError<E>> {
+
+        // Check that the sizes of commitments and encryptions are correct.
+	if agg_share.pvss_core.encs.len() != self.config.num_participants ||
+           agg_share.pvss_core.comms.len() != self.config.num_participants {
+	        return Err(PVSSError::MismatchedCommitsEncryptionsParticipantsError(
+			    agg_share.pvss_core.encs.len(),
+			    agg_share.pvss_core.comms.len(), self.config.num_participants));
+	}
+
+        Ok(())
+    }
+
+    // Method for handling a received PVSSShare instance.
     pub fn receive_share<R: Rng>(
         &mut self,
         rng: &mut R,
-        share: &PVSSAugmentedShare<E>,
+        share: &PVSSShare<E>,
     ) -> Result<(), PVSSError<E>> {
 
-	    // Verify augmented PVSS share.
-        self.share_verify(rng, share)?;
+// The share is aggregated into the aggregator's currently aggregated
+// transcript. NOTE: Probably split into two functions.
 
-	    // Create a PVSS transcript from the info included in the augmented share.
+	// Verify augmented PVSS share.
+        self.share_verify(rng, share)?;   // !!!!!!!!!!!!!!!!!!
+
+	// Create a PVSS transcript from the info included in the augmented share.
         let transcript = PVSSTranscript {
             degree: self.config.degree,
             num_participants: self.participants.len(),
@@ -84,7 +189,7 @@ where
         transcript: &PVSSTranscript<E>,
     ) -> Result<(), PVSSError<E>> {
 
-	    // Perform checks on the transcript analogous to Context::verify_aggregation:
+        // Perform checks on the transcript analogous to Context::verify_aggregation:
 
 	    // Check that the sizes of commitments and encryptions are correct.
 	    if transcript.pvss_share.encs.len() != self.config.num_participants || 
@@ -94,8 +199,8 @@ where
     	}
 
     	// Coding check for the commitments to ensure that they represent a
-	    // commitment to a degree t polynomial.
-	    if ensure_degree::<E, _>(rng, &transcript.pvss_share.comms, self.config.degree as u64).is_err() {
+	// commitment to a degree t polynomial.
+	if ensure_degree::<E, _>(rng, &transcript.pvss_share.comms, self.config.degree as u64).is_err() {
             return Err(PVSSError::DualCodeError);
     	}
 
@@ -146,86 +251,6 @@ where
         //let pvss_timer = start_timer!(|| "PVSS share verification");
         //self.pvss_share_verify(rng, c.into_affine(), &transcript.pvss_share)?;
         //end_timer!(pvss_timer);
-
-        Ok(())
-    }
-
-
-    // Method for verifying individual "core" PVSS shares against a commitment to some secret.
-    pub fn pvss_share_verify<R: Rng>(
-        &self,
-        rng: &mut R,
-	    decomp_proof: &DecompProof<E>,   // need to pass on separately since PVSSShares don't have decomps attached
-        share: &PVSSShare<E>,
-    ) -> Result<(), PVSSError<E>> {
-
-	    // Check that the sizes of commitments and encryptions are correct.
-	    if share.encs.len() != self.config.num_participants ||
-           share.comms.len() != self.config.num_participants {
-	        return Err(PVSSError::MismatchedCommitsEncryptionsParticipantsError(share.encs.len(),
-			    share.comms.len(), self.config.num_participants));
-	    }
-
-	    // Coding check for the commitments to ensure that they represent a
-	    // commitment to a degree t polynomial.
-	    if ensure_degree::<E, _>(rng, &share.comms, self.config.degree as u64).is_err() {
-            return Err(PVSSError::DualCodeError);
-        }
-
-	    // The pairing condition for correctness of encryption is: e(pk_i, v_i) = e(enc_i, g_2).
-	    // NOTE: However, we do not have access to the sender's identity at this point (and by
-	    // extension, its public key). Hence, this check is done in share_verify.
-
-        // Check decomposition proof.
-	    let point = lagrange_interpolation_simple::<E>(&share.comms, self.config.degree as u64).unwrap();   // E::G2Projective
-
-	    if point.into_affine() != decomp_proof.gs {
-	        return Err(PVSSError::GSCheckError);
-	    }
-
-	    // Verify decomposition proof against our config.
-        if decomp_proof.verify(&self.config).is_err() {
-	        return Err(PVSSError::DecompProofVerificationError);
-	    }
-
-        Ok(())
-    }
-
-
-    // Method for verifying a received PVSSAugmentedShare instance.
-    pub fn share_verify<R: Rng>(
-        &mut self,
-        rng: &mut R,
-        share: &PVSSAugmentedShare<E>,
-    ) -> Result<(), PVSSError<E>> {
-
-        // Retrieve the Participant instance using the id within the augmented share.
-	    let participant_id = share.participant_id;
-        let participant = self
-            .participants
-            .get(&participant_id)
-            .ok_or(PVSSError::<E>::InvalidParticipantId(participant_id))?;
-
-	    // Verify correctness of encryption:
-
-	    let pairs = [
-            (participant.public_key_sig.into(), share.pvss_share.comms[participant_id].into_affine().into()),
-            (share.pvss_share.encs[participant_id].neg().into_affine().into(), self.config.srs.g2.into()),
-        ];
-
-        if !E::product_of_pairings(pairs.iter()).is_one() {
-            return Err(PVSSError::EncryptionCorrectnessError);
-        }
-
-	    // Verify the "core" PVSS share against the provided decomposition proof.
-	    self.pvss_share_verify(rng, &share.decomp_proof, &share.pvss_share)?;
-
-        // Verify signature on decomposition proof against participant i's public key.
-        self.scheme_sig.verify(
-            &participant.public_key_sig,
-            &message_from_pi_i(share.decomp_proof)?,
-            &share.signature_on_decomp,
-        )?;
 
         Ok(())
     }
