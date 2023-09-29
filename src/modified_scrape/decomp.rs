@@ -1,6 +1,6 @@
 use super::{config::Config, errors::PVSSError};
 use crate::nizk::{dlk::{DLKProof, srs::SRS as DLKSRS}, scheme::NIZKProof};
-use crate::Scalar;
+use crate::{Scalar, Digest};   // Hash, 
 
 use ark_ec::{AffineCurve, PairingEngine, ProjectiveCurve};
 use ark_ff::PrimeField;
@@ -10,6 +10,10 @@ use ark_std::fmt::Debug;
 use std::io::Cursor;
 use std::marker::PhantomData;
 use rand::Rng;
+
+
+use std::hash::{Hash, Hasher};
+use std::collections::hash_map::DefaultHasher;
 
 pub type ProofGroup<E> = <E as PairingEngine>::G2Affine;   // the group over which the proof is computed
 pub type ProofType<E> = DecompProof<E>;   		   // the type of output decomposition proofs
@@ -47,11 +51,19 @@ impl<E: PairingEngine> Decomp<E> {
     }
 }
 
+
+impl<E: PairingEngine> Hash for DecompProof<E> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.proof.hash(state);
+        self.gs.hash(state);
+    }
+}
+
+
 impl<E: PairingEngine> DecompProof<E> {
 
     // Method for verifying decomposition proofs under some configuration.
-    pub fn verify(&self,
-                  config: &Config<E>) -> Result<(), PVSSError<E>> {
+    pub fn verify(&self, config: &Config<E>) -> Result<(), PVSSError<E>> {
 	// Create a proof system for proving knowledge of discrete log
 	let dlk = DLKProof { srs: DLKSRS::<ProofGroup::<E>> { g_public_key: config.srs.g2 } };
 
@@ -59,7 +71,18 @@ impl<E: PairingEngine> DecompProof<E> {
            .verify(&self.gs, &self.proof)
            .unwrap())                            // TODO: what if the dlk produces an error???
     }
+
+    pub fn digest(&mut self) -> Digest {
+        let mut hasher = DefaultHasher::new();
+        self.hash(&mut hasher);
+        let byte_array= hasher.finish().to_ne_bytes();   // TODO: use cryptographically secure hash
+        let mut arr = [0; 32];
+        arr[..byte_array.len()].copy_from_slice(&byte_array);
+
+        Digest(arr)
+    }
 }
+
 
 // Utility function for buffering a decomposition proof into a buffer and
 // obtaining a reference to said buffer.
