@@ -160,6 +160,17 @@ impl CanonicalSerialize for PublicKey {
     }
 }
 
+// PublicKey(pub [u8; 32 as usize])
+impl CanonicalDeserialize for PublicKey {
+    #[inline]
+    fn deserialize<R: Read>(mut reader: R) -> Result<Self, SerializationError> {
+        let result = PublicKey( core::array::from_fn(|_| {
+            u8::deserialize(&mut reader).unwrap()
+        }) );
+        Ok(result)
+    }
+}
+
 impl fmt::Debug for PublicKey {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         write!(f, "{}", self.to_base64())
@@ -204,15 +215,15 @@ impl CanonicalSerialize for SecretKey {
     &self,
     mut writer: W,
     ) -> Result<(), SerializationError> {
-	    // self.0.serialize_with_mode(&mut writer, compress)
-	    for item in self.0.iter() {
+	// self.0.serialize_with_mode(&mut writer, compress)
+	for item in self.0.iter() {
             item.serialize(&mut writer)?;
         }
-	    Ok(())
+	Ok(())
     }
 
     fn serialized_size(&self) -> usize {
-	    self.0.iter()
+	self.0.iter()
             .map(|item| item.serialized_size())
             .sum::<usize>()
     }
