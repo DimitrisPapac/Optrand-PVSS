@@ -160,7 +160,6 @@ impl CanonicalSerialize for PublicKey {
     }
 }
 
-// PublicKey(pub [u8; 32 as usize])
 impl CanonicalDeserialize for PublicKey {
     #[inline]
     fn deserialize<R: Read>(mut reader: R) -> Result<Self, SerializationError> {
