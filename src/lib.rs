@@ -21,15 +21,6 @@ use std::convert::{TryFrom, TryInto};
 use std::fmt;
 use ark_serialize::{CanonicalSerialize, CanonicalDeserialize, SerializationError, Read, Write};
 
-/*
-use tokio::sync::mpsc::{channel, Sender};
-use tokio::sync::oneshot;
-use threshold_crypto::{
-    PublicKeySet, PublicKeyShare, SecretKeySet, SecretKeyShare, SignatureShare,
-};
-use threshold_crypto::serde_impl::SerdeSecret;
-*/
-
 ///////////////////////////////////////////////////////////////////
 
 // Also declared in poly.rs:
