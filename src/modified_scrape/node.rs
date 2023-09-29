@@ -5,16 +5,16 @@ use crate::{
         dealer::Dealer,
         errors::PVSSError,
         participant::{Participant, ParticipantState},
-        pvss::{PVSSShare, PVSSShareSecrets},
+        pvss::{PVSSCore, PVSSShareSecrets},
+	share::{PVSSAggregatedShare, PVSSShare},
 	decomp::{Decomp, DecompProof, message_from_pi_i},
     },
     signature::scheme::BatchVerifiableSignatureScheme,
 };
-use crate::modified_scrape::share::{PVSSTranscript, PVSSAugmentedShare};
+use crate::modified_scrape::share::{PVSSAggregatedShare, PVSSShare};
 use super::poly::{Polynomial, lagrange_interpolation, lagrange_interpolation_simple, ensure_degree};
 use super::decryption::DecryptedShare;
-use crate::{GT, Scalar};
-use crate::Signature;
+use crate::{GT, Scalar, Signature};
 
 use ark_ec::{AffineCurve, PairingEngine, ProjectiveCurve};
 use ark_ff::{Field, PrimeField, UniformRand};
@@ -32,13 +32,12 @@ pub struct Node<
     E: PairingEngine,
     SSIG: BatchVerifiableSignatureScheme<PublicKey = E::G1Affine, Secret = Scalar<E>>,
 > {
-    pub aggregator: DKGAggregator<E, SSIG>,     // the aggregator aspect of the node
+    pub aggregator: PVSSAggregator<E, SSIG>,    // the aggregator aspect of the node
     pub dealer: Dealer<E, SSIG>,                // the dealer aspect of the node
 }
 
 impl<
         E: PairingEngine,
-        // SPOK: BatchVerifiableSignatureScheme<PublicKey = E::G1Affine, Secret = Scalar<E>>,
         SSIG: BatchVerifiableSignatureScheme<PublicKey = E::G1Affine, Secret = Scalar<E>>,
     > Node<E, SSIG>
 {
@@ -46,7 +45,6 @@ impl<
     // Function for creating a new node in the PVSS sharing protocol.
     pub fn new(
         config: Config<E>,
-        // scheme_pok: SPOK,
         scheme_sig: SSIG,
         dealer: Dealer<E, SSIG>,
         participants: BTreeMap<usize, Participant<E, SSIG>>,
@@ -56,10 +54,9 @@ impl<
         let node = Node {
             aggregator: PVSSAggregator {
                 config,
-                // scheme_pok,
                 scheme_sig,
                 participants,
-                transcript: PVSSTranscript::empty(degree, num_participants),
+                aggregated_tx: PVSSAggregatedShare::empty(degree, num_participants),
             },
             dealer,
         };
@@ -67,51 +64,49 @@ impl<
     }
 
 
-    // Method for generating a core PVSS share.
+    // Utility method for generating a core of a PVSS share.
     pub fn share_pvss<R: Rng>(
         &mut self,
         rng: &mut R,
-    ) -> Result<(PVSSShare<E>, PVSSShareSecrets<E>), PVSSError<E>> {
-	    let t = self.aggregator.config.degree;
-	    let n = self.aggregator.config.num_participants;
+    ) -> Result<(PVSSCore<E>, PVSSShareSecrets<E>), PVSSError<E>> {
+        let t = self.aggregator.config.degree;
+	let n = self.aggregator.config.num_participants;
 
-	    // Sample a random degree t polynomial
-	    let poly = Polynomial::<E>::rand(t, rng);
+	// Sample a random degree t polynomial
+	let poly = Polynomial::<E>::rand(t, rng);
 
-	    // Evaluate poly(j) for all j in {1, ..., n}
-	    let mut evals = (1..n+1)
+	// Evaluate poly(j) for all j in {1, ..., n}
+	let mut evals = (1..n+1)
 	        .map(|j| poly.evaluate(&Scalar::<E>::from(j as u64)))
 	        .collect::<Vec<_>>();
 
-	    // Compute commitments for all nodes in {0, ..., n-1}
+	// Compute commitments for all nodes in {0, ..., n-1}
         // Recall that G2 is the commitment group.
-	    let mut comms = (0..n)
+	let mut comms = (0..n)
 	        .map(|j| config.srs.g2.mul(evals[j].into_repr()))
 	        .collect::<Vec<_>>();
 
-	    // Compute encryptions for all nodes in {0, ..., n-1}
-	    let mut encs = (0..n)
-	        .map::<Result<E::G1Affine, PVSSError<E>>, _>(|j| {   // .map::<Result<E::G2Affine, PVSSError<E>>, _>(|j| {
-                Ok(self
-                    .aggregator
-                    .participants
-                    .get(&j)
-                    .ok_or(PVSSError::<E>::InvalidParticipantId(j))?
-                    .public_key_sig   // !!!
-                    .mul(evals[j].into_repr())
-                    .into_affine())
-            })
-            .collect::<Result<_, _>>()?;
+	// Compute encryptions for all nodes in {0, ..., n-1}
+	let mut encs = (0..n)
+	        .map::<Result<E::G1Affine, PVSSError<E>>, _>(|j| {
+                    Ok(self
+                        .aggregator
+                        .participants
+                        .get(&j)
+                        .ok_or(PVSSError::<E>::InvalidParticipantId(j))?
+                        .public_key_sig   // obtain participant's public (encryption) key
+                        .mul(evals[j].into_repr())
+                        .into_affine())
+                    })
+                .collect::<Result<_, _>>()?;
 
-	    // Compose PVSS share
-	    let pvss_share = PVSSShare {
+	// Compose PVSS core
+	let pvss_share = PVSSCore {
             comms,
-	        encs,
-	    // decomp_proof,
-	    // sig_of_knowledge
+	    encs,
         };
 
-	    // Generate my_secret
+	// Generate my_secret
         let my_secret = self
             .aggregator
             .config
@@ -120,57 +115,54 @@ impl<
             .mul(evals[self.dealer.participant.id].into_repr())
             .into_affine();
 
-	    // Create PVSSShareSecrets
+	// Create PVSSShareSecrets
         let pvss_share_secrets = PVSSShareSecrets {
             p_0: poly.coeffs[0],
             my_secret,
         };
 
-	    // Return the result (OK)
-	    Ok((pvss_share, pvss_share_secrets))
+	// Return the result
+	Ok((pvss_core, pvss_share_secrets))
     }
 
 
-    // Method for generating a PVSSAugmentedShare instance for secret sharing.
-    pub fn share<R: Rng>(&mut self, rng: &mut R) -> Result<PVSSAugmentedShare<E, SSIG>, PVSSError<E>> {
-    
-	    // Create the core PVSSShare first.
-	    let (pvss_share, pvss_share_secrets) = self.share_pvss(rng)?;
+    // Method for creating a PVSSShare instance for secret sharing.
+    pub fn share<R: Rng>(&mut self, rng: &mut R) -> Result<PVSSShare<E>, PVSSError<E>> {
+        // Create the core PVSSCore first.
+	let (pvss_core, pvss_share_secrets) = self.share_pvss(rng)?;
 
-	    // Generate decomposition proof.
-	    let decomp_proof = Decomp::<E>::generate(rng, &aggregator.config, &pvss_share_secrets.p_0).unwrap();
+	// Generate decomposition proof.
+	let decomp_proof = Decomp::<E>::generate(rng, &aggregator.config, &pvss_share_secrets.p_0).unwrap();
 
-	    // Use the (private) signing key contained in the dealer instance to also compute
-	    // the public key w.r.t. the signature scheme indicated by the aggregator instance.
-	    //let signature_keypair = self
+	// Use the (private) signing key contained in the dealer instance to also compute
+	// the public key w.r.t. the signature scheme indicated by the aggregator instance.
+	//let signature_keypair = self
         //        .aggregator
         //        .scheme_sig
         //        .from_sk(&(self.dealer.private_key_sig))?;
 
-	    // ISSUE: Need to compute digest from decomp_proof
+	// ISSUE: Need to compute digest from decomp_proof
         let digest = ...........................;
 
         // Sign the decomposition proof using EdDSA
-	    let signature_on_decomp = Some(Signature::new(&digest, &self.dealer.private_key_ed))?;   // internally retrieves the key pair
-            //Some(self.aggregator
-            //    .scheme_sig
-            //    .sign(rng, &signature_keypair.0, &message_from_pi_i(decomp_proof)?)?);
+	let signature_on_decomp = Some(Signature::new(&digest, &self.dealer.private_key_ed))?;   // internally retrieves the key pair
 
-	    // Create the augmented PVSS share.
-	    let share = PVSSAugmentedShare {
+	// Create the PVSS share.
+	let share = PVSSShare {
             participant_id: self.dealer.participant.id,
-            pvss_share,
-	        decomp_proof,
+            pvss_core,
+	    decomp_proof,
             signature_on_decomp,
         };
 
-	    // Set dealer instance's state to DealerShared.
+	// Set dealer instance's state to DealerShared.
         self.dealer.participant.state = ParticipantState::DealerShared;
 
         Ok(share)
     }
 
 
+/*
     // Assumes that the participant id has been authenticated.
     pub fn receive_share_and_decrypt<R: Rng>(
         &mut self,
@@ -214,7 +206,6 @@ impl<
     }
 
 
-/*
     // Assumes that the participant id has been authenticated.
     pub fn receive_transcript_and_decrypt<R: Rng>(
         &mut self,
@@ -242,6 +233,7 @@ impl<
 */
 
 
+/*
     // Method for reconstructing the shared secret and beacon value.
     pub fn reconstruct(
 	&mut self,
@@ -290,6 +282,7 @@ impl<
 
 	Ok((point, S))
     }
+*/
     
 }
 
