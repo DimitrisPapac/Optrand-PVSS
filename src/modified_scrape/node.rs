@@ -11,7 +11,7 @@ use crate::{
     },
     signature::scheme::BatchVerifiableSignatureScheme,
 };
-use crate::modified_scrape::share::{PVSSAggregatedShare, PVSSShare};
+
 use super::poly::{Polynomial, lagrange_interpolation, lagrange_interpolation_simple, ensure_degree};
 use super::decryption::DecryptedShare;
 use crate::{GT, Scalar, Signature};
@@ -83,7 +83,7 @@ impl<
 	// Compute commitments for all nodes in {0, ..., n-1}
         // Recall that G2 is the commitment group.
 	let mut comms = (0..n)
-	        .map(|j| config.srs.g2.mul(evals[j].into_repr()))
+	        .map(|j| self.aggregator.config.srs.g2.mul(evals[j].into_repr()))
 	        .collect::<Vec<_>>();
 
 	// Compute encryptions for all nodes in {0, ..., n-1}
@@ -101,7 +101,7 @@ impl<
                 .collect::<Result<_, _>>()?;
 
 	// Compose PVSS core
-	let pvss_share = PVSSCore {
+	let pvss_core = PVSSCore {
             comms,
 	    encs,
         };
@@ -132,7 +132,7 @@ impl<
 	let (pvss_core, pvss_share_secrets) = self.share_pvss(rng)?;
 
 	// Generate decomposition proof.
-	let decomp_proof = Decomp::<E>::generate(rng, &aggregator.config, &pvss_share_secrets.p_0).unwrap();
+	let decomp_proof = Decomp::<E>::generate(rng, &self.aggregator.config, &pvss_share_secrets.p_0).unwrap();
 
 	// Use the (private) signing key contained in the dealer instance to also compute
 	// the public key w.r.t. the signature scheme indicated by the aggregator instance.
@@ -141,8 +141,7 @@ impl<
         //        .scheme_sig
         //        .from_sk(&(self.dealer.private_key_sig))?;
 
-	// ISSUE: Need to compute digest from decomp_proof
-        let digest = ...........................;
+        let digest = decomp_proof.digest();
 
         // Sign the decomposition proof using EdDSA
 	let signature_on_decomp = Some(Signature::new(&digest, &self.dealer.private_key_ed))?;   // internally retrieves the key pair
@@ -160,6 +159,11 @@ impl<
 
         Ok(share)
     }
+
+
+
+
+
 
 
 /*
