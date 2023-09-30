@@ -85,7 +85,7 @@ impl CanonicalSerialize for Digest {
     mut writer: W,
     ) -> Result<(), SerializationError> {
         for item in self.0.iter() {
-            item.serialize(&mut writer)?;   // item.serialize(&mut writer)?;
+            item.serialize(&mut writer)?;
         }
 	    Ok(())
     }
