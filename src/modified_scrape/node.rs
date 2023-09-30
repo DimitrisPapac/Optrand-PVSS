@@ -11,14 +11,15 @@ use crate::{
 	poly::{Polynomial as Poly}
     },
     signature::scheme::BatchVerifiableSignatureScheme,
+    Scalar,
+    Signature,
 };
 
 // use super::poly::{Polynomial};   // lagrange_interpolation, lagrange_interpolation_simple, ensure_degree
 // use super::decryption::DecryptedShare;
-use crate::{Scalar, Signature};   // GT, 
 
 use ark_ec::{AffineCurve, PairingEngine, ProjectiveCurve};
-use ark_ff::{PrimeField, UniformRand};   // Field, 
+use ark_ff::{PrimeField};   // Field, UniformRand
 use ark_std::ops::AddAssign;
 use ark_poly::{Polynomial, UVPolynomial};
 
@@ -82,18 +83,18 @@ where
 	let poly = Poly::<E>::rand(t, rng);
 
 	// Evaluate poly(j) for all j in {1, ..., n}
-	let mut evals = (1..n+1)
+	let evals = (1..n+1)
 	        .map(|j| poly.evaluate(&Scalar::<E>::from(j as u64)))
 	        .collect::<Vec<_>>();
 
 	// Compute commitments for all nodes in {0, ..., n-1}
         // Recall that G2 is the commitment group.
-	let mut comms = (0..n)
+	let comms = (0..n)
 	        .map(|j| self.aggregator.config.srs.g2.mul(evals[j].into_repr()))
 	        .collect::<Vec<_>>();
 
 	// Compute encryptions for all nodes in {0, ..., n-1}
-	let mut encs = (0..n)
+	let encs = (0..n)
 	        .map::<Result<E::G1Projective, PVSSError<E>>, _>(|j| {
                     Ok(self
                         .aggregator
@@ -140,7 +141,7 @@ where
 	// Generate decomposition proof.
 	let mut decomp_proof = Decomp::<E>::generate(rng, &self.aggregator.config, &pvss_share_secrets.p_0).unwrap();
 
-    let digest = decomp_proof.digest();
+        let digest = decomp_proof.digest();
 
         // Sign the decomposition proof using EdDSA
 	let signature_on_decomp = Signature::new(&digest, &self.dealer.private_key_ed);   // internally retrieves the key pair
@@ -158,160 +159,41 @@ where
 
         Ok(share)
     }
-
-
-
-
-
-
-
-/*
-    // Assumes that the participant id has been authenticated.
-    pub fn receive_share_and_decrypt<R: Rng>(
-        &mut self,
-        rng: &mut R,
-        share: PVSSAugmentedShare<E, SSIG>,
-    ) -> Result<(), PVSSError<E>> {
-	// Retrieve participant's id from the share
-	let participant_id = share.participant_id;
-
-	// Anonymous function for performing the decryption
-	match (|| -> Result<DecryptedShare<E>, PVSSError<E>> {   // Result<E::G2Affine, PVSSError<E>>
-            self.aggregator.receive_share(rng, &share)?;   // ................
-	    
-	    /*
-	    // decryption occurs here
-            let secret = share.pvss_share.encs[self.dealer.participant.id]
-                .mul(self.dealer.private_key_sig.inverse().unwrap().into_repr())
-                .into_affine();
-	    */
-
-	    // decrypt share
-	    let secret = DecryptedShare::generate(share.pvss_share.encs[self.dealer.participant.id],
-		self.dealer.private_key_sig,
-		self.dealer.participant.id);
-
-            Ok(secret)
-        })() {
-            Ok(secret) => {
-                self.dealer.accumulated_secret = self.dealer.accumulated_secret + secret;   // ?????
-                let participant = self
-                    .aggregator
-                    .participants
-                    .get_mut(&participant_id)
-                    .ok_or(PVSSError::<E>::InvalidParticipantId(participant_id))?;
-                participant.state = ParticipantState::Verified;
-            }
-            Err(_) => {}
-        };
-
-	Ok(())
-    }
-
-
-    // Assumes that the participant id has been authenticated.
-    pub fn receive_transcript_and_decrypt<R: Rng>(
-        &mut self,
-        rng: &mut R,
-        transcript: DKGTranscript<E, SPOK, SSIG>,
-    ) -> Result<(), DKGError<E>> {
-        self.aggregator.receive_transcript(rng, &transcript)?;
-
-        let secret = transcript.pvss_share.y_i[self.dealer.participant.id]
-            .mul(self.dealer.private_key_sig.inverse().unwrap().into_repr())
-            .into_affine();
-
-        for (participant_id, _) in transcript.contributions {
-            let participant = self
-                .aggregator
-                .participants
-                .get_mut(&participant_id)
-                .ok_or(DKGError::<E>::InvalidParticipantId(participant_id))?;
-            participant.state = ParticipantState::Verified;
-        }
-        self.dealer.accumulated_secret = self.dealer.accumulated_secret + secret;
-
-        Ok(())
-    }
-*/
-
-
-/*
-    // Method for reconstructing the shared secret and beacon value.
-    pub fn reconstruct(
-	&mut self,
-	decryptions: &Vec<DecryptedShare<E>>
-	) -> Result<(E::G1Affine, GT<E>), PVSSError<E>> {
-
-	let degree = self.aggregator.config.degree as u64;
-
-	if decryptions.len() <= degree {
-	    return Err(PVSSError::InsufficientDecryptionsError(decryptions.size(), self.aggregator.config.degree));
-	}
-
-	// NOTE: Mind the +1 when extracting the origin
-	let (points, evals): (Vec<_>, Vec<_>) = (0..decryptions.len())
-	    .map(|i| (decryptions[i].origin + 1, decryptions[i].dec))
-	    .unzip();
-
-	// Lagrange interpolation over group G_1
-	match (|| -> Result<E::G1Projective, PVSSError<E>> {
-            let mut sum = E::G1Projective::zero();
-
-    	    for j in 0..degree+1 {
-                let x_j = points[j as usize];
-	        let mut prod = Scalar::<E>::one();
-	        for k in 0..degree+1 {
-	            if j != k {
-	                let x_k = points[k as usize];
-	                prod *= x_k * (x_k - x_j).inverse().unwrap();
-	            }
-	        }
-
-	        // Recovery formula
-	        sum += evals[j as usize].mul(prod.into_repr());
-            }
-
-            Ok(sum)
-        })() {
-            Ok(sum) => {
-                let point = sum.into_affine();
-            }
-            Err(_) => {}
-        };
-
-	// Compute the "beacon value"
-	let S = E::pairing(point, self.aggregator.config.g2_prime);   // in <E as PairingEngine>::Fqk
-
-	Ok((point, S))
-    }
-*/
     
 }
 
 
 /* Unit tests: */
 
-/*
+
 #[cfg(test)]
 mod test {
     use crate::{
-        dkg::{
-            aggregator::DKGAggregator,
+        modified_scrape::{
+            aggregator::PVSSAggregator,
             config::Config,
             dealer::Dealer,
-            node::Node,
+            errors::PVSSError,
             participant::{Participant, ParticipantState},
-            share::DKGTranscript,
-            srs::SRS,
+            pvss::{PVSSCore, PVSSShareSecrets},
+	    share::{PVSSAggregatedShare, PVSSShare},
+	    decomp::{Decomp},   // DecompProof, message_from_pi_i
+	    poly::{Polynomial as Poly},
+	    srs::SRS,
         },
-        signature::{
-            bls::{srs::SRS as BLSSRS, BLSSignature, BLSSignatureG1, BLSSignatureG2},
-            scheme::{BatchVerifiableSignatureScheme, SignatureScheme},
-            schnorr::{srs::SRS as SchnorrSRS, SchnorrSignature},
-        },
+        Scalar,
+        Signature,
+	SecretKey,
+	generate_production_keypair,
     };
-    use ark_bls12_381::{Bls12_381, Fr, G1Affine, G1Projective, G2Affine, G2Projective};
+
+    use crate::signature::schnorr::{SchnorrSignature, srs::SRS as SCHSRS};
+    use crate::signature::{
+        scheme::{BatchVerifiableSignatureScheme, SignatureScheme},
+        utils::tests::check_serialization,
+    };
+
+    use ark_bls12_381::{Bls12_381, Fr, G1Affine as G1, G1Projective, G2Affine as G2, G2Projective};
     use ark_ec::ProjectiveCurve;
     use ark_ff::{UniformRand, Zero};
     use rand::thread_rng;
@@ -322,54 +204,30 @@ mod test {
     fn test_one() {
         let rng = &mut thread_rng();
         let srs = SRS::<Bls12_381>::setup(rng).unwrap();
-        let bls_sig = BLSSignature::<BLSSignatureG1<Bls12_381>> {
-            srs: BLSSRS {
-                g_public_key: srs.h_g2,
-                g_signature: srs.g_g1,
-            },
-        };
-        let bls_pok = BLSSignature::<BLSSignatureG2<Bls12_381>> {
-            srs: BLSSRS {
-                g_public_key: srs.g_g1,
-                g_signature: srs.h_g2,
-            },
-        };
-        let dealer_keypair_sig = bls_sig.generate_keypair(rng).unwrap();
-        let dealer = Dealer {
+
+	let schnorr_srs = SCHSRS::<G1>::setup(rng).unwrap();
+        let schnorr_sig = SchnorrSignature { srs: schnorr_srs };
+
+	// create the dealer instance
+        let dealer_keypair_sig = schnorr_sig.generate_keypair(rng).unwrap();   // (sk, pk)
+	let eddsa_keypair = generate_production_keypair();  // (pk, sk)
+	
+	let dealer = Dealer {
             private_key_sig: dealer_keypair_sig.0,
-            accumulated_secret: G2Projective::zero().into_affine(),
+    	    private_key_ed: eddsa_keypair.1,
             participant: Participant {
                 pairing_type: PhantomData,
                 id: 0,
                 public_key_sig: dealer_keypair_sig.1,
+		public_key_ed: eddsa_keypair.0,
                 state: ParticipantState::Dealer,
             },
         };
-
-        let u_1 = G2Projective::rand(rng).into_affine();
-        let dkg_config = Config {
-            srs: srs.clone(),
-            u_1,
-            degree: 10,
-        };
-
-        let participants = vec![dealer.participant.clone()];
-        let degree = dkg_config.degree;
-        let num_participants = participants.len();
-
-        let mut node = Node {
-            aggregator: DKGAggregator {
-                config: dkg_config.clone(),
-                scheme_pok: bls_pok.clone(),
-                scheme_sig: bls_sig.clone(),
-                participants: participants.clone().into_iter().enumerate().collect(),
-                transcript: DKGTranscript::empty(degree, num_participants),
-            },
-            dealer,
-        };
-
-        node.share(rng).unwrap();
     }
+
+
+}   // REMOVE
+/*
 
     #[test]
     fn test_2_nodes_verify() {
