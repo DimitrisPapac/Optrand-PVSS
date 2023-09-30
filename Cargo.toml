@@ -11,7 +11,6 @@ ark-poly = { version = "^0.2.0", features = [ "std" ] }
 ark-serialize = { version = "^0.2.0", features = [ "std" ] }
 ark-std = { version = "^0.2.0", features = [ "std" ] }
 ark-bls12-381 = { version = "^0.2.0", features = [ "std" ] }
-#ark-secp256k1 = { version = "^0.2.0", features = [ "std" ] }
 thiserror = "1.0.19"
 rand = "0.7.3"
 rand_chacha = { version = "0.2.1" }
