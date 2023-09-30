@@ -32,7 +32,7 @@ use std::collections::BTreeMap;
 pub struct Node<E, SSIG>
 where
     E: PairingEngine,
-    <E as PairingEngine>::G2Affine: AddAssign,
+    //<E as PairingEngine>::G2Affine: AddAssign,
     SSIG: BatchVerifiableSignatureScheme<PublicKey = E::G1Affine, Secret = E::Fr>,
 {
     pub aggregator: PVSSAggregator<E, SSIG>,    // the aggregator aspect of the node
@@ -42,7 +42,7 @@ where
 impl<E, SSIG> Node<E, SSIG>
 where
     E: PairingEngine,
-    <E as PairingEngine>::G2Affine: AddAssign,
+    //<E as PairingEngine>::G2Affine: AddAssign,
     SSIG: BatchVerifiableSignatureScheme<PublicKey = E::G1Affine, Secret = E::Fr>,
 {
 
@@ -215,7 +215,7 @@ mod test {
 	let eddsa_keypair = generate_production_keypair();  // (pk, sk)
 
 	// create the dealer instance
-	let dealer: Dealer<Bls12<ark_bls12_381::Parameters>,
+	let dealer: Dealer<Bls12_381,   //Bls12<ark_bls12_381::Parameters>,
 			   SchnorrSignature<<Bls12_381 as PairingEngine>::G1Affine>> = Dealer {
             private_key_sig: dealer_keypair_sig.0,
     	    private_key_ed: eddsa_keypair.1,
@@ -258,7 +258,7 @@ mod test {
     }
 
 
-}   // REMOVE
+}
 /*
 
     #[test]
