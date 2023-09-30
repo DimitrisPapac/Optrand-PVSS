@@ -15,7 +15,6 @@ use ed25519_dalek::ed25519;
 use ed25519_dalek::Signer as _;
 use rand::rngs::OsRng;
 use rand::{CryptoRng, RngCore};
-//use serde::{de, ser, Deserialize, Serialize};
 use std::array::TryFromSliceError;
 use std::convert::{TryFrom, TryInto};
 use std::fmt;
