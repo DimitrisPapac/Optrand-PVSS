@@ -245,7 +245,7 @@ where
 
 /* Struct representing an EdDSA signature. */
 
-#[derive(Clone, Default, Debug)]
+#[derive(Clone, Default, Debug, Copy)]
 pub struct Signature {
     part1: [u8; 32],
     part2: [u8; 32],
@@ -275,7 +275,7 @@ impl Signature {
 
     pub fn verify_batch<'a, I>(digest: &Digest, votes: I) -> Result<(), CryptoError>
     where
-        I: IntoIterator<Item = &'a (PublicKey, Signature)>,
+        I: IntoIterator<Item = (&'a PublicKey, &'a Signature)>,
     {
         let mut messages: Vec<&[u8]> = Vec::new();
         let mut signatures: Vec<dalek::Signature> = Vec::new();

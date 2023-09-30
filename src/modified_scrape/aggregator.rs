@@ -5,7 +5,7 @@ use crate::modified_scrape::share::{PVSSAggregatedShare, PVSSShare};
 use crate::modified_scrape::participant::Participant;
 use crate::modified_scrape::decomp::{DecompProof, message_from_pi_i};
 use crate::signature::scheme::BatchVerifiableSignatureScheme;
-use crate::{Signature, Digest};
+use crate::{Signature, Digest, PublicKey};
 use std::collections::hash_map::DefaultHasher;
 use std::hash::Hasher;
 use std::hash::Hash;
@@ -92,7 +92,7 @@ where
     pub fn share_verify<R: Rng>(
         &mut self,
         rng: &mut R,
-        share: &PVSSShare<E>,
+        share: &mut PVSSShare<E>,
     ) -> Result<(), PVSSError<E>> {
 
         // Retrieve the Participant instance using the id within the augmented share.
@@ -189,8 +189,8 @@ where
 
 	// Batch-verification of signatures:
 	let mut dproofs = Vec::new();
-	let mut pks = Vec::new();
-	let mut sigs = Vec::new();
+	let mut pks: Vec<PublicKey> = Vec::new();
+	let mut sigs: Vec<Signature> = Vec::new();
 
 	for (participant_id, contribution) in agg_share.contributions.iter() {
 	    dproofs.push(contribution.decomp_proof.clone());
@@ -207,9 +207,11 @@ where
         arr[..byte_array.len()].copy_from_slice(&byte_array);
 
 	let digest = Digest(arr);
-	let votes = pks.iter().zip(sigs.iter());
+	let votes: std::iter::Zip<std::slice::Iter<'_, PublicKey>, std::slice::Iter<'_, Signature>> = pks.iter().zip(sigs.iter());
+	
+	
 	if Signature::verify_batch(&digest, votes).is_err() {
-	    return Err(PVSSError::EdDSAInvalidSignatureBatchError)
+		return Err(PVSSError::EdDSAInvalidSignatureBatchError);
 	}
 
         Ok(())
@@ -221,7 +223,7 @@ where
     pub fn receive_share<R: Rng>(
         &mut self,
         rng: &mut R,
-        share: &PVSSShare<E>,
+        share: &mut PVSSShare<E>,
     ) -> Result<(), PVSSError<E>> {
 
 	// Verify the PVSS share.
