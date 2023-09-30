@@ -247,13 +247,14 @@ mod test {
                 aggregated_tx: PVSSAggregatedShare::empty(degree, num_participants),
         };
         
+	// create the node instance
         let mut node = Node {
             aggregator,
             dealer,
         };
 
+	// invoke share to create a PVSS share
         node.share(rng).unwrap();
-
     }
 
 
