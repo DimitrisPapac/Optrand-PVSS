@@ -3,16 +3,16 @@ use crate::{
         aggregator::PVSSAggregator,
         config::Config,
         dealer::Dealer,
+	decomp::Decomp,   // DecompProof, message_from_pi_i
         errors::PVSSError,
         participant::{Participant, ParticipantState},
+	poly::{Polynomial as Poly},
         pvss::{PVSSCore, PVSSShareSecrets},
 	share::{PVSSAggregatedShare, PVSSShare},
-	decomp::{Decomp},   // DecompProof, message_from_pi_i
-	poly::{Polynomial as Poly}
     },
-    signature::scheme::BatchVerifiableSignatureScheme,
     Scalar,
     Signature,
+    signature::scheme::BatchVerifiableSignatureScheme,
 };
 
 use ark_ec::{AffineCurve, PairingEngine, ProjectiveCurve};
