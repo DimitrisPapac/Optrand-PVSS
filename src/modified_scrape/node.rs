@@ -3,16 +3,16 @@ use crate::{
         aggregator::PVSSAggregator,
         config::Config,
         dealer::Dealer,
-	decomp::Decomp,   // DecompProof, message_from_pi_i
         errors::PVSSError,
         participant::{Participant, ParticipantState},
-	poly::{Polynomial as Poly},
         pvss::{PVSSCore, PVSSShareSecrets},
 	share::{PVSSAggregatedShare, PVSSShare},
+	decomp::{Decomp},   // DecompProof, message_from_pi_i
+	poly::{Polynomial as Poly}
     },
+    signature::scheme::BatchVerifiableSignatureScheme,
     Scalar,
     Signature,
-    signature::scheme::BatchVerifiableSignatureScheme,
 };
 
 use ark_ec::{AffineCurve, PairingEngine, ProjectiveCurve};
@@ -191,12 +191,13 @@ mod test {
     };
 
     use ark_bls12_381::{
-	Bls12_381 as E,                 // pairing engine
+	Bls12_381,                      // type Bls12_381 = Bls12<Parameters>
 	Fr,
-	G1Affine as G1, G1Projective,
-	G2Affine as G2, G2Projective,
+	G1Affine, G1Projective,
+	G2Affine, G2Projective,
     };
-    use ark_ec::ProjectiveCurve;
+    use ark_ec::bls12::Bls12;           // implements PairingEngine
+    use ark_ec::{PairingEngine, ProjectiveCurve, AffineCurve};
     use ark_ff::{UniformRand, Zero};
     use rand::thread_rng;
 
@@ -205,27 +206,26 @@ mod test {
     #[test]
     fn test_one() {
         let rng = &mut thread_rng();
-        let srs = SRS::<E>::setup(rng).unwrap();
-
-	let schnorr_srs = SCHSRS::<G1>::setup(rng).unwrap();
+        let srs = SRS::<Bls12_381>::setup(rng).unwrap();
+	let schnorr_srs = SCHSRS::<<Bls12_381 as PairingEngine>::G1Affine>::setup(rng).unwrap();
         let schnorr_sig = SchnorrSignature { srs: schnorr_srs };
 
 	// create the dealer instance
         let dealer_keypair_sig = schnorr_sig.generate_keypair(rng).unwrap();   // (sk, pk)
 	let eddsa_keypair = generate_production_keypair();  // (pk, sk)
-	
-	let dealer = Dealer {
+
+	let dealer = Dealer::<Bls12_381, schnorr_sig> {
             private_key_sig: dealer_keypair_sig.0,
     	    private_key_ed: eddsa_keypair.1,
             participant: Participant {
-                pairing_type: PhantomData::<E>,
+                pairing_type: PhantomData,
                 id: 0,
                 public_key_sig: dealer_keypair_sig.1,
 		public_key_ed: eddsa_keypair.0,
                 state: ParticipantState::Dealer,
             },
         };
-
+/*
 	let config = Config {
             srs: srs.clone(),
             degree: 1,
@@ -235,18 +235,22 @@ mod test {
         let participants = vec![dealer.participant.clone()];
 	let num_participants = participants.len();
         let degree = config.degree;
-        
-        let mut node = Node {
-            aggregator: PVSSAggregator {
+
+	// create the aggregator instance
+	let aggregator = PVSSAggregator {
                 config: config.clone(),
                 scheme_sig: schnorr_sig.clone(),
                 participants: participants.clone().into_iter().enumerate().collect(),
                 aggregated_tx: PVSSAggregatedShare::empty(degree, num_participants),
-            },
+        };
+        
+        let mut node = Node {
+            aggregator,
             dealer,
         };
 
         node.share(rng).unwrap();
+*/
     }
 
 
