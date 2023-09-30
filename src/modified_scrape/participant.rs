@@ -5,7 +5,7 @@ use crate::signature::scheme::BatchVerifiableSignatureScheme;
 use ark_serialize::{CanonicalSerialize, CanonicalDeserialize, SerializationError, Read, Write};
 
 // Struct ParticipantState models the states that each participant in the PVSS
-// scheme goes through.
+// scheme goes through. (UNUSED)
 #[derive(Clone)]
 pub enum ParticipantState {
     Dealer,
