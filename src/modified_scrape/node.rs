@@ -15,9 +15,6 @@ use crate::{
     Signature,
 };
 
-// use super::poly::{Polynomial};   // lagrange_interpolation, lagrange_interpolation_simple, ensure_degree
-// use super::decryption::DecryptedShare;
-
 use ark_ec::{AffineCurve, PairingEngine, ProjectiveCurve};
 use ark_ff::{PrimeField};   // Field, UniformRand
 use ark_std::ops::AddAssign;
@@ -36,7 +33,7 @@ pub struct Node<E, SSIG>
 where
     E: PairingEngine,
     <E as PairingEngine>::G2Affine: AddAssign,
-    SSIG: BatchVerifiableSignatureScheme<PublicKey = E::G1Affine, Secret = Scalar<E>>,
+    SSIG: BatchVerifiableSignatureScheme<PublicKey = E::G1Affine, Secret = E::Fr>,
 {
     pub aggregator: PVSSAggregator<E, SSIG>,    // the aggregator aspect of the node
     pub dealer: Dealer<E, SSIG>,                // the dealer aspect of the node
@@ -46,7 +43,7 @@ impl<E, SSIG> Node<E, SSIG>
 where
     E: PairingEngine,
     <E as PairingEngine>::G2Affine: AddAssign,
-    SSIG: BatchVerifiableSignatureScheme<PublicKey = E::G1Affine, Secret = Scalar<E>>,
+    SSIG: BatchVerifiableSignatureScheme<PublicKey = E::G1Affine, Secret = E::Fr>,
 {
 
     // Function for creating a new node in the PVSS sharing protocol.
@@ -180,20 +177,25 @@ mod test {
 	    decomp::{Decomp},   // DecompProof, message_from_pi_i
 	    poly::{Polynomial as Poly},
 	    srs::SRS,
+	    node::Node,
         },
+	signature::{
+	    schnorr::{SchnorrSignature, srs::SRS as SCHSRS},
+            scheme::{BatchVerifiableSignatureScheme, SignatureScheme},
+            utils::tests::check_serialization,
+    	},
         Scalar,
         Signature,
 	SecretKey,
 	generate_production_keypair,
     };
 
-    use crate::signature::schnorr::{SchnorrSignature, srs::SRS as SCHSRS};
-    use crate::signature::{
-        scheme::{BatchVerifiableSignatureScheme, SignatureScheme},
-        utils::tests::check_serialization,
+    use ark_bls12_381::{
+	Bls12_381 as E,                 // pairing engine
+	Fr,
+	G1Affine as G1, G1Projective,
+	G2Affine as G2, G2Projective,
     };
-
-    use ark_bls12_381::{Bls12_381, Fr, G1Affine as G1, G1Projective, G2Affine as G2, G2Projective};
     use ark_ec::ProjectiveCurve;
     use ark_ff::{UniformRand, Zero};
     use rand::thread_rng;
@@ -203,7 +205,7 @@ mod test {
     #[test]
     fn test_one() {
         let rng = &mut thread_rng();
-        let srs = SRS::<Bls12_381>::setup(rng).unwrap();
+        let srs = SRS::<E>::setup(rng).unwrap();
 
 	let schnorr_srs = SCHSRS::<G1>::setup(rng).unwrap();
         let schnorr_sig = SchnorrSignature { srs: schnorr_srs };
@@ -216,7 +218,7 @@ mod test {
             private_key_sig: dealer_keypair_sig.0,
     	    private_key_ed: eddsa_keypair.1,
             participant: Participant {
-                pairing_type: PhantomData,   // error!!!
+                pairing_type: PhantomData::<E>,
                 id: 0,
                 public_key_sig: dealer_keypair_sig.1,
 		public_key_ed: eddsa_keypair.0,
