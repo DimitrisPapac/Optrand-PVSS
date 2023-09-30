@@ -3,34 +3,28 @@ use crate::modified_scrape::errors::PVSSError;
 use crate::modified_scrape::pvss::PVSSCore;
 use crate::modified_scrape::share::{PVSSAggregatedShare, PVSSShare};
 use crate::modified_scrape::participant::Participant;
-use crate::modified_scrape::decomp::{DecompProof, message_from_pi_i};
+use crate::modified_scrape::decomp::{DecompProof};   // message_from_pi_i
 use crate::signature::scheme::BatchVerifiableSignatureScheme;
 use crate::{Signature, Digest, PublicKey};
-use std::collections::hash_map::DefaultHasher;
-use std::hash::Hasher;
-use std::hash::Hash;
-
-//use crate::modified_scrape::decomp::ProofGroup;
-
 use super::config::Config;
-//use crate::Scalar;
 
 use ark_ec::{PairingEngine, ProjectiveCurve};   // msm::VariableBaseMSM, AffineCurve
 use ark_std::collections::BTreeMap;
-
-//use ark_ff::{PrimeField, UniformRand};
 use ark_ff::{One, Zero};
 use ark_std::ops::AddAssign;
 
 use rand::Rng;
 use std::ops::Neg;
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
+
 
 /* A PVSSAggregator is responsible for receiving PVSS shares, verifying them, and
    aggregating them to an aggregated transcript. */
 pub struct PVSSAggregator<E, SSIG>
 where
     E: PairingEngine,
-    <E as PairingEngine>::G2Affine: AddAssign,
+    //<E as PairingEngine>::G2Affine: AddAssign,
     SSIG: BatchVerifiableSignatureScheme<PublicKey = E::G1Affine, Secret = E::Fr>,
 {
     pub config: Config<E>,                                     // the "global" configuration parameters
@@ -175,7 +169,7 @@ where
 	let mut gs_total = E::G2Affine::zero();
 
 	// Contributions are essentially signed decomposition proofs.
-	for (participant_id, contribution) in agg_share.contributions.iter() {
+	for (_participant_id, contribution) in agg_share.contributions.iter() {
 	    if contribution.decomp_proof.verify(&self.config).is_err() {
 		return Err(PVSSError::DecompositionInTranscriptError);
 	    }
