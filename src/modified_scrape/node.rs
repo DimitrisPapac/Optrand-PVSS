@@ -216,13 +216,35 @@ mod test {
             private_key_sig: dealer_keypair_sig.0,
     	    private_key_ed: eddsa_keypair.1,
             participant: Participant {
-                pairing_type: PhantomData,
+                pairing_type: PhantomData,   // error!!!
                 id: 0,
                 public_key_sig: dealer_keypair_sig.1,
 		public_key_ed: eddsa_keypair.0,
                 state: ParticipantState::Dealer,
             },
         };
+
+	let config = Config {
+            srs: srs.clone(),
+            degree: 1,
+	    num_participants: 1,
+        };
+
+        let participants = vec![dealer.participant.clone()];
+	let num_participants = participants.len();
+        let degree = config.degree;
+        
+        let mut node = Node {
+            aggregator: PVSSAggregator {
+                config: config.clone(),
+                scheme_sig: schnorr_sig.clone(),
+                participants: participants.clone().into_iter().enumerate().collect(),
+                aggregated_tx: PVSSAggregatedShare::empty(degree, num_participants),
+            },
+            dealer,
+        };
+
+        node.share(rng).unwrap();
     }
 
 
