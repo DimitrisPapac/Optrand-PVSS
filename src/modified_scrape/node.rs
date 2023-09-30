@@ -210,11 +210,13 @@ mod test {
 	let schnorr_srs = SCHSRS::<<Bls12_381 as PairingEngine>::G1Affine>::setup(rng).unwrap();
         let schnorr_sig = SchnorrSignature { srs: schnorr_srs };
 
-	// create the dealer instance
+	// generate key pairs
         let dealer_keypair_sig = schnorr_sig.generate_keypair(rng).unwrap();   // (sk, pk)
 	let eddsa_keypair = generate_production_keypair();  // (pk, sk)
 
-	let dealer = Dealer::<Bls12_381, schnorr_sig> {
+	// create the dealer instance
+	let dealer: Dealer<Bls12<ark_bls12_381::Parameters>,
+			   SchnorrSignature<<Bls12_381 as PairingEngine>::G1Affine>> = Dealer {
             private_key_sig: dealer_keypair_sig.0,
     	    private_key_ed: eddsa_keypair.1,
             participant: Participant {
@@ -225,7 +227,7 @@ mod test {
                 state: ParticipantState::Dealer,
             },
         };
-/*
+
 	let config = Config {
             srs: srs.clone(),
             degree: 1,
@@ -237,7 +239,8 @@ mod test {
         let degree = config.degree;
 
 	// create the aggregator instance
-	let aggregator = PVSSAggregator {
+	let aggregator: PVSSAggregator<Bls12_381,
+			   SchnorrSignature<<Bls12_381 as PairingEngine>::G1Affine>> = PVSSAggregator {
                 config: config.clone(),
                 scheme_sig: schnorr_sig.clone(),
                 participants: participants.clone().into_iter().enumerate().collect(),
@@ -250,7 +253,7 @@ mod test {
         };
 
         node.share(rng).unwrap();
-*/
+
     }
 
 
