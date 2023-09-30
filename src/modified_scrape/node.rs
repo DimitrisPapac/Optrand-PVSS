@@ -138,9 +138,9 @@ where
 	let (pvss_core, pvss_share_secrets) = self.share_pvss(rng)?;
 
 	// Generate decomposition proof.
-	let decomp_proof = Decomp::<E>::generate(rng, &self.aggregator.config, &pvss_share_secrets.p_0).unwrap();
+	let mut decomp_proof = Decomp::<E>::generate(rng, &self.aggregator.config, &pvss_share_secrets.p_0).unwrap();
 
-        let digest = decomp_proof.digest();
+    let digest = decomp_proof.digest();
 
         // Sign the decomposition proof using EdDSA
 	let signature_on_decomp = Signature::new(&digest, &self.dealer.private_key_ed);   // internally retrieves the key pair
