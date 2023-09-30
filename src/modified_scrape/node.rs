@@ -4,7 +4,7 @@ use crate::{
         config::Config,
         dealer::Dealer,
         errors::PVSSError,
-        participant::{Participant, ParticipantState},
+        participant::{Participant},   // ParticipantState
         pvss::{PVSSCore, PVSSShareSecrets},
 	share::{PVSSAggregatedShare, PVSSShare},
 	decomp::{Decomp},   // DecompProof, message_from_pi_i
@@ -152,7 +152,7 @@ where
         };
 
 	// Set dealer instance's state to DealerShared.
-        self.dealer.participant.state = ParticipantState::DealerShared;
+        // self.dealer.participant.state = ParticipantState::DealerShared;
 
         Ok(share)
     }
@@ -212,7 +212,7 @@ mod test {
 
 	// generate key pairs
         let dealer_keypair_sig = schnorr_sig.generate_keypair(rng).unwrap();   // (sk, pk)
-	let eddsa_keypair = generate_production_keypair();  // (pk, sk)
+	let eddsa_keypair = generate_production_keypair();                     // (pk, sk)
 
 	// create the dealer instance
 	let dealer: Dealer<Bls12_381,   //Bls12<ark_bls12_381::Parameters>,
@@ -224,10 +224,11 @@ mod test {
                 id: 0,
                 public_key_sig: dealer_keypair_sig.1,
 		public_key_ed: eddsa_keypair.0,
-                state: ParticipantState::Dealer,
+                // state: ParticipantState::Dealer,
             },
         };
 
+	// set global configuration parameters
 	let config = Config {
             srs: srs.clone(),
             degree: 1,
@@ -256,11 +257,8 @@ mod test {
 	// invoke share to create a PVSS share
         node.share(rng).unwrap();
     }
-
-
 }
 /*
-
     #[test]
     fn test_2_nodes_verify() {
         const NODES: usize = 4;
@@ -273,14 +271,7 @@ mod test {
                 g_signature: srs.g_g1,
             },
         };
-        let bls_pok = BLSSignature::<BLSSignatureG2<Bls12_381>> {
-            srs: BLSSRS {
-                g_public_key: srs.g_g1,
-                g_signature: srs.h_g2,
-            },
-        };
 
-        let u_1 = G2Projective::rand(rng).into_affine();
         let dkg_config = Config {
             srs: srs.clone(),
             u_1,
@@ -294,7 +285,7 @@ mod test {
                 pairing_type: PhantomData,
                 id: i,
                 public_key_sig: dealer_keypair_sig.1,
-                state: ParticipantState::Dealer,
+                //state: ParticipantState::Dealer,
             };
             let dealer = Dealer {
                 private_key_sig: dealer_keypair_sig.0,
@@ -335,6 +326,7 @@ mod test {
             }
         }
     }
+
 
     #[test]
     fn test_2_nodes_and_aggregator_bls() {
