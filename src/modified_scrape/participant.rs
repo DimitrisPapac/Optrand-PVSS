@@ -1,8 +1,7 @@
-use crate::PublicKey;
 use ark_ec::PairingEngine;
-use std::marker::PhantomData;
-use crate::signature::scheme::BatchVerifiableSignatureScheme;
 use ark_serialize::{CanonicalSerialize, CanonicalDeserialize, SerializationError, Read, Write};
+use crate::{PublicKey, signature::scheme::BatchVerifiableSignatureScheme};
+use std::marker::PhantomData;
 
 // Struct ParticipantState models the states that each participant in the PVSS
 // scheme goes through. (UNUSED)
