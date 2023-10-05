@@ -4,20 +4,19 @@ use crate::{
         config::Config,
         dealer::Dealer,
         errors::PVSSError,
-        participant::{Participant},   // ParticipantState
+        participant::Participant,
         pvss::{PVSSCore, PVSSShareSecrets},
 	share::{PVSSAggregatedShare, PVSSShare},
-	decomp::{Decomp},   // DecompProof, message_from_pi_i
+	decomp::Decomp,
 	poly::{Polynomial as Poly}
     },
-    signature::scheme::BatchVerifiableSignatureScheme,
     Scalar,
     Signature,
+    signature::scheme::BatchVerifiableSignatureScheme,
 };
 
 use ark_ec::{AffineCurve, PairingEngine, ProjectiveCurve};
-use ark_ff::{PrimeField};   // Field, UniformRand
-use ark_std::ops::AddAssign;
+use ark_ff::PrimeField;
 use ark_poly::{Polynomial, UVPolynomial};
 
 use rand::Rng;
@@ -64,6 +63,7 @@ where
             },
             dealer,
         };
+
         Ok(node)
     }
 
@@ -141,7 +141,7 @@ where
         let digest = decomp_proof.digest();
 
         // Sign the decomposition proof using EdDSA
-	let signature_on_decomp = Signature::new(&digest, &self.dealer.private_key_ed);   // internally retrieves the key pair
+	let signature_on_decomp = Signature::new(&digest, &self.dealer.private_key_ed);
 
 	// Create the PVSS share.
 	let share = PVSSShare {
@@ -170,35 +170,22 @@ mod test {
             aggregator::PVSSAggregator,
             config::Config,
             dealer::Dealer,
-            errors::PVSSError,
-            participant::{Participant, ParticipantState},
-            pvss::{PVSSCore, PVSSShareSecrets},
-	    share::{PVSSAggregatedShare, PVSSShare},
-	    decomp::{Decomp},   // DecompProof, message_from_pi_i
-	    poly::{Polynomial as Poly},
+            participant::Participant,
+	    share::PVSSAggregatedShare,
 	    srs::SRS,
 	    node::Node,
         },
 	signature::{
 	    schnorr::{SchnorrSignature, srs::SRS as SCHSRS},
-            scheme::{BatchVerifiableSignatureScheme, SignatureScheme},
-            utils::tests::check_serialization,
+            scheme::SignatureScheme,
     	},
-        Scalar,
-        Signature,
-	SecretKey,
 	generate_production_keypair,
     };
 
     use ark_bls12_381::{
-	Bls12_381,                      // type Bls12_381 = Bls12<Parameters>
-	Fr,
-	G1Affine, G1Projective,
-	G2Affine, G2Projective,
+	Bls12_381,                         // type Bls12_381 = Bls12<Parameters> (Bls12 implements PairingEngine)
     };
-    use ark_ec::bls12::Bls12;           // implements PairingEngine
-    use ark_ec::{PairingEngine, ProjectiveCurve, AffineCurve};
-    use ark_ff::{UniformRand, Zero};
+    use ark_ec::PairingEngine;
     use rand::thread_rng;
 
     use std::marker::PhantomData;
@@ -224,7 +211,6 @@ mod test {
                 id: 0,
                 public_key_sig: dealer_keypair_sig.1,
 		public_key_ed: eddsa_keypair.0,
-                // state: ParticipantState::Dealer,
             },
         };
 
