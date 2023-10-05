@@ -1,22 +1,34 @@
-use crate::modified_scrape::poly::{ensure_degree, lagrange_interpolation_simple};   // poly::Polynomial, lagrange_interpolation
-use crate::modified_scrape::errors::PVSSError;
-use crate::modified_scrape::pvss::PVSSCore;
-use crate::modified_scrape::share::{PVSSAggregatedShare, PVSSShare};
-use crate::modified_scrape::participant::Participant;
-use crate::modified_scrape::decomp::{DecompProof};   // message_from_pi_i
-use crate::signature::scheme::BatchVerifiableSignatureScheme;
-use crate::{Signature, Digest, PublicKey};
-use super::config::Config;
+use crate::{
+    Digest,
+    modified_scrape::{
+	config::Config,
+        decomp::DecompProof,
+        errors::PVSSError,
+        participant::Participant,
+        poly::{ensure_degree, lagrange_interpolation_simple},   // poly::Polynomial, lagrange_interpolation
+        pvss::PVSSCore,
+        share::{PVSSAggregatedShare, PVSSShare},
+    },
+    PublicKey,
+    Signature,
+    signature::scheme::BatchVerifiableSignatureScheme,
+};
 
 use ark_ec::{PairingEngine, ProjectiveCurve};   // msm::VariableBaseMSM, AffineCurve
-use ark_std::collections::BTreeMap;
 use ark_ff::{One, Zero};
-use ark_std::ops::AddAssign;
+use ark_std::{
+    collections::BTreeMap,
+    ops::AddAssign,
+};
 
 use rand::Rng;
-use std::ops::Neg;
-use std::collections::hash_map::DefaultHasher;
-use std::hash::{Hash, Hasher};
+use std::{
+    collections::hash_map::DefaultHasher,
+    hash::{Hash, Hasher},
+    iter::Zip,
+    ops::Neg,
+    slice::Iter,
+};
 
 
 /* A PVSSAggregator is responsible for receiving PVSS shares, verifying them, and
@@ -97,7 +109,7 @@ where
             .get(&participant_id)
             .ok_or(PVSSError::<E>::InvalidParticipantId(participant_id))?;
 
-	// Verify correctness of encryption:
+	// Verify correctness of encryption: e(pk_i, v_i) = e(enc_i, g_2).
 	let pairs = [
             (participant.public_key_sig.into(), share.pvss_core.comms[participant_id].into_affine().into()),
             (share.pvss_core.encs[participant_id].neg().into_affine().into(), self.config.srs.g2.into()),
@@ -144,7 +156,6 @@ where
 	if ensure_degree::<E, _>(rng, &agg_share.pvss_core.comms, self.config.degree as u64).is_err() {
             return Err(PVSSError::DualCodeError);
         }
-
 	
 	// Pairing check: e(pk_i, com_i) = e(enc_i, g2)
 
@@ -201,8 +212,7 @@ where
         arr[..byte_array.len()].copy_from_slice(&byte_array);
 
 	let digest = Digest(arr);
-	let votes: std::iter::Zip<std::slice::Iter<'_, PublicKey>, std::slice::Iter<'_, Signature>> = pks.iter().zip(sigs.iter());
-	
+	let votes: Zip<Iter<'_, PublicKey>, Iter<'_, Signature>> = pks.iter().zip(sigs.iter());
 	
 	if Signature::verify_batch(&digest, votes).is_err() {
 		return Err(PVSSError::EdDSAInvalidSignatureBatchError);
@@ -212,8 +222,7 @@ where
     }
 
     // Method for handling a received PVSSShare instance.
-    // The share is aggregated into the aggregator's currently aggregated
-    // transcript.
+    // The share is aggregated into the aggregator's currently aggregated transcript.
     pub fn receive_share<R: Rng>(
         &mut self,
         rng: &mut R,
@@ -231,8 +240,7 @@ where
 
 
     // Method for handling a received PVSSAggregatedShare instance.
-    // The share is aggregated into the aggregator's currently aggregated
-    // transcript.
+    // The share is aggregated into the aggregator's currently aggregated transcript.
     pub fn receive_aggregated_share<R: Rng>(
         &mut self,
         rng: &mut R,
