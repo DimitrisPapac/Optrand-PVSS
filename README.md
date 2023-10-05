@@ -3,7 +3,7 @@
 **WARNING:** This code has not beed audited yet - please use it at your own risk.
 
 A library supporting the operations from the publicly verifiable secret sharing scheme from the [Optrand](https://eprint.iacr.org/2022/193.pdf) protocol.
-Written purely in Rust and intended to be used as a core component of the GRandLine Distributed Randomness Beacon Protocol.
+Written purely in Rust and intended to be used as a core cryptographic component of the GRandLine Distributed Randomness Beacon Protocol.
 
 ## Installation
 Install a recent stable Rust toolchain using rustup.
