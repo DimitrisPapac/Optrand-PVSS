@@ -1,18 +1,18 @@
-use super::errors::PVSSError;
-use crate::Scalar;
+use crate::{
+    modified_scrape::errors::PVSSError,
+    Scalar,
+};
 
-use ark_ff::{Field, Zero, One, PrimeField};
 use ark_ec::{PairingEngine, ProjectiveCurve};
+use ark_ff::{Field, Zero, One, PrimeField};
 use ark_poly::{UVPolynomial, Polynomial as Poly, polynomial::univariate::DensePolynomial};
 use ark_std::ops::AddAssign;
-// use ark_std::ops::{Add, Mul};
 
 use rand::Rng;
 
 
 // A polynomial with the various coefficients in the Scalar Group
 pub type Polynomial<E> = DensePolynomial<Scalar<E>>;
-
 
 
 // Function for ensuring that the commitment vector evals is
@@ -24,11 +24,6 @@ where
 	E: PairingEngine,
 	E::G2Projective: AddAssign,
 	R: Rng
-	//Scalar<E>: AsRef<[u64]>,
-	//Scalar<E>: AddAssign<<E as PairingEngine>::G2Affine>,
-	//Scalar<E>: From<u64>,
-	//Scalar<E>: Add<Output = Scalar<E>>,
-	//Scalar<E>: Mul<Output = Scalar<E>>,
 {
     let num = evaluations.len() as u64;
 
@@ -139,18 +134,21 @@ where
 
 #[cfg(test)]
 mod test {
-    use rand::{Rng, thread_rng};
-    use crate::ark_std::UniformRand;
+    use crate::{
+	modified_scrape::{
+	    poly::{Polynomial, ensure_degree, lagrange_interpolation_simple, lagrange_interpolation},
+	    srs::SRS,
+	},
+	Scalar,
+    };
+
+    use ark_bls12_381::{Bls12_381 as E};   // implements PairingEngine
+    use ark_ec::{PairingEngine, AffineCurve};
     use ark_ff::PrimeField;
     use ark_poly::{UVPolynomial, Polynomial as Poly};
-    use ark_ec::{PairingEngine, ProjectiveCurve, AffineCurve};
-    use ark_bls12_381::{Bls12_381 as E};   // implements PairingEngine
+    use ark_std::UniformRand;
 
-
-    use crate::modified_scrape::{poly::{Polynomial, ensure_degree, lagrange_interpolation_simple, lagrange_interpolation}};
-    use crate::modified_scrape::{srs::SRS};
-    use crate::Scalar;
-
+    use rand::{Rng, thread_rng};
 
     // cargo test -- --nocapture
 
