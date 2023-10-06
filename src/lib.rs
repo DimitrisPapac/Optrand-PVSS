@@ -30,9 +30,6 @@ pub type Scalar<E> = <E as PairingEngine>::Fr;
 /// A polynomial with the various coefficients in the Scalar Group
 pub type Polynomial<E> = DensePolynomial<Scalar<E>>;
 
-///////////////////////////////////////////////////////////////////
-
-
 //////////////////////////////////////////////////////////////////
 
 // EdDSA definitions
