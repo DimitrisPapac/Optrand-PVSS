@@ -3,7 +3,7 @@
 A library supporting the operations from the publicly verifiable secret sharing scheme from the [Optrand](https://eprint.iacr.org/2022/193.pdf) protocol.
 Written purely in Rust and intended to be used as a core cryptographic component of the upcoming GRandLine Distributed Randomness Beacon Protocol.
 
-This library is released under the MIT License and the Apache v2 License (see License).
+This library is released under the Apache v2 License (see License).
 
 **WARNING:** This is an academic proof-of-concept prototype, and in particular has not beed audited yet - please use it at your own risk.
 
