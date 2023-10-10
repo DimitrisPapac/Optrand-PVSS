@@ -18,11 +18,11 @@ pub type Polynomial<E> = DensePolynomial<Scalar<E>>;
 // Function for ensuring that the commitment vector evals is
 // also a commitment to a polynomial of specified degree.
 pub fn ensure_degree<E, R>(rng: &mut R,
-                           evaluations: &Vec<E::G2Projective>,
+                           evaluations: &Vec<E::G2Projective>,   // G2 is the group of commitments
                            degree: u64) -> Result<(), PVSSError<E>>
 where
 	E: PairingEngine,
-	E::G2Projective: AddAssign,
+	//E::G2Projective: AddAssign,
 	R: Rng
 {
     let num = evaluations.len() as u64;
@@ -31,31 +31,30 @@ where
         return Err(PVSSError::InsufficientEvaluationsError);
     }
 
-    // sample a random polynomial of appropriate degree
+    // Sample a random polynomial of appropriate degree
     let poly = Polynomial::<E>::rand((num-degree-2) as usize, rng);
 
     let mut v = E::G2Projective::zero();
 
-    for i in 1..num+1 {
+    for i in 1..=num {
         let scalar_i = Scalar::<E>::from(i);
-	let mut cperp = poly.evaluate(&scalar_i);
-	for j in 1..num+1 {
-            let scalar_j = Scalar::<E>::from(j);
-            if i != j {
-                cperp *= (scalar_i - scalar_j).inverse().unwrap();
+        let mut cperp = poly.evaluate(&scalar_i);
+        for j in 1..=num {
+                let scalar_j = Scalar::<E>::from(j);
+                if i != j {
+                    cperp *= (scalar_i - scalar_j).inverse().unwrap();
+                }
             }
-        }
-	v += evaluations[(i-1) as usize].mul(cperp.into_repr());   // .into_affine();
+        //v += evaluations[(i-1) as usize].mul(cperp.into_repr());   // .into_affine();
+        v.add_assign_mixed(&evaluations[(i-1) as usize].mul(cperp.into_repr()).into_affine());
     }
 
     if v.into_affine() != E::G2Affine::zero() {
-	return Err(PVSSError::DualCodeError);
+	    return Err(PVSSError::DualCodeError);
     }
 
     Ok(())
-
 }
-
 
 
 // Utility function for Lagrange interpolation from a given list of evaluations.
@@ -72,23 +71,22 @@ where
 
     let mut sum = E::G2Projective::zero();
     
-    for j in 0..degree+1 {
+    for j in 0..=degree {
         let x_j = Scalar::<E>::from(j + 1);
-	let mut prod = Scalar::<E>::one();
-	for k in 0..degree+1 {
-	    if j != k {
-	        let x_k = Scalar::<E>::from(k + 1);
-	        prod *= x_k * (x_k - x_j).inverse().unwrap();
-	    }
-	}
+        let mut prod = Scalar::<E>::one();
+        for k in 0..=degree {
+            if j != k {
+                let x_k = Scalar::<E>::from(k + 1);
+                prod *= x_k * (x_k - x_j).inverse().unwrap();
+            }
+        }
 
-	// Recovery formula
-	sum += evals[j as usize].mul(prod.into_repr());
+        // Recovery formula
+        sum += evals[j as usize].mul(prod.into_repr());
     }
 
     Ok(sum)
 }
-
 
 
 // Utility function for Lagrange interpolation from a given list of points
@@ -105,23 +103,23 @@ where
     }
 
     if evals.len() != points.len() {
-	return Err(PVSSError::DifferentPointsEvalsError);
+	    return Err(PVSSError::DifferentPointsEvalsError);
     }
 
     let mut sum = E::G2Projective::zero();
 
-    for j in 0..degree+1 {
+    for j in 0..=degree {
         let x_j = points[j as usize];
-	let mut prod = Scalar::<E>::one();
-	for k in 0..degree+1 {
-	    if j != k {
-	        let x_k = points[k as usize];
-	        prod *= x_k * (x_k - x_j).inverse().unwrap();
-	    }
-	}
+        let mut prod = Scalar::<E>::one();
+        for k in 0..=degree {
+            if j != k {
+                let x_k = points[k as usize];
+                prod *= x_k * (x_k - x_j).inverse().unwrap();
+            }
+        }
 
-	// Recovery formula
-	sum += evals[j as usize].mul(prod.into_repr());
+        // Recovery formula
+        sum += evals[j as usize].mul(prod.into_repr());
     }
 
     Ok(sum)
@@ -131,15 +129,14 @@ where
 /* Unit tests: */
 
 
-
 #[cfg(test)]
 mod test {
     use crate::{
-	modified_scrape::{
-	    poly::{Polynomial, ensure_degree, lagrange_interpolation_simple, lagrange_interpolation},
-	    srs::SRS,
-	},
-	Scalar,
+        modified_scrape::{
+            poly::{Polynomial, ensure_degree, lagrange_interpolation_simple, lagrange_interpolation},
+            srs::SRS,
+        },
+        Scalar,
     };
 
     use ark_bls12_381::{Bls12_381 as E};   // implements PairingEngine
@@ -160,28 +157,29 @@ mod test {
     #[test]
     fn test_sample_poly() {
         let rng = &mut thread_rng();
-	let deg = rng.gen_range(MIN_DEGREE, MAX_DEGREE);
+        let deg = rng.gen_range(MIN_DEGREE, MAX_DEGREE);
 
-	// generate a random polynomial
-	let _p = Polynomial::<E>::rand(deg, rng);
-	// println!("Sampled polynomial:\n {:?}", p);
+        // generate a random polynomial
+        let _p = Polynomial::<E>::rand(deg, rng);
+        // println!("Sampled degree: {}\n", deg);
+        // println!("Sampled polynomial:\n {:?}", p);
 
-	// retrieve its free term
-	// println!("Its free term is: {:?}", p.coeffs[0]);
+        // retrieve its free term
+        // println!("Its free term is: {:?}", p.coeffs[0]);
 
-	// evaluate polynomial at some given point
-	// println!("0 * p(3) = {:?}", Scalar::<E>::from(0u64) * p.evaluate(&Scalar::<E>::from(3u64)));
+        // evaluate polynomial at some given point
+        // println!("0 * p(3) = {:?}", Scalar::<E>::from(0u64) * p.evaluate(&Scalar::<E>::from(3u64)));
 
-	assert_eq!(2+2, 4);
+        assert_eq!(2+2, 4);
     }
 
 
     #[test]
     fn test_ensure_degree() {
-	let rng = &mut thread_rng();
+	    let rng = &mut thread_rng();
         let deg = rng.gen_range(MIN_DEGREE, MAX_DEGREE) as u64;
 
-	// we use random group elemements from G_2 since it doesn't matter here.
+	    // we use random group elemements from G_2 since it doesn't matter here.
         let evals = vec![<E as PairingEngine>::G2Projective::rand(rng); (deg+4) as usize];
         assert_eq!(ensure_degree::<E, _>(rng, &evals, deg).unwrap(), ());
     }
@@ -190,10 +188,10 @@ mod test {
     #[test]
     #[should_panic]
     fn test_ensure_degree_insufficient_evals() {
-	let rng = &mut thread_rng();
+	    let rng = &mut thread_rng();
         let deg = rng.gen_range(MIN_DEGREE, MAX_DEGREE) as u64;
 
-	// we use random group elemements from G_2 since it doesn't matter here.
+	    // we use random group elemements from G_2 since it doesn't matter here.
         let evals = vec![<E as PairingEngine>::G2Projective::rand(rng); (deg-1) as usize];
         ensure_degree::<E, _>(rng, &evals, deg).unwrap();
     }
