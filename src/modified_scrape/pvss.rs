@@ -213,8 +213,8 @@ mod test {
         let rng = &mut thread_rng();
         let size = 10;
 
-	    let core = PVSSCore::<E> {
-            encs: vec![<E as PairingEngine>::G1Projective::rand(rng); size],
+	let core = PVSSCore::<E> {
+            encs:  vec![<E as PairingEngine>::G1Projective::rand(rng); size],
             comms: vec![<E as PairingEngine>::G2Projective::rand(rng); size],
         };
 
