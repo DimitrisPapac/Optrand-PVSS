@@ -53,7 +53,10 @@ where
             return Err(PVSSError::MismatchedCommitmentsEncryptionsError(self.comms.len(), other.encs.len()));
         }
 
-        // At this point, other.comms.len() == other.encs.len() also holds.
+        // At this point, the following also hold:
+        // self.encs.len() != 0
+        // other.comms.len() == other.encs.len()
+        // other.comms.len(), other.encs.len() != 0
 
         // Aggregate PVSS cores
         let result = Self {
