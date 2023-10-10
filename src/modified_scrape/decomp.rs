@@ -111,12 +111,10 @@ mod test {
     use ark_poly::UVPolynomial;
 
     use crate::signature::utils::tests::check_serialization;
-    use crate::modified_scrape::{decomp::Decomp, srs::SRS, poly::Polynomial, config::Config};
+    use crate::modified_scrape::{decomp::{Decomp, DecompProof}, srs::SRS, poly::Polynomial, config::Config};
 
     use rand::thread_rng;
     use ark_std::UniformRand;
-
-    use super::DecompProof;
 
 
     #[test]
