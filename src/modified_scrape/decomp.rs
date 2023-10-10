@@ -1,19 +1,23 @@
-use super::{config::Config, errors::PVSSError};
-use crate::nizk::{dlk::{DLKProof, srs::SRS as DLKSRS}, scheme::NIZKProof};
-use crate::{Scalar, Digest};   // Hash, 
+use crate::{
+    Digest,
+    modified_scrape::{config::Config, errors::PVSSError},
+    nizk::{dlk::{DLKProof, srs::SRS as DLKSRS}, scheme::NIZKProof},
+    Scalar,
+};
 
 use ark_ec::{AffineCurve, PairingEngine, ProjectiveCurve};
 use ark_ff::PrimeField;
 use ark_serialize::*;
 use ark_std::fmt::Debug;
 
-use std::io::Cursor;
-use std::marker::PhantomData;
 use rand::Rng;
+use std::{
+    collections::hash_map::DefaultHasher,
+    hash::{Hash, Hasher},
+    io::Cursor,
+    marker::PhantomData,
+};
 
-
-use std::hash::{Hash, Hasher};
-use std::collections::hash_map::DefaultHasher;
 
 pub type ProofGroup<E> = <E as PairingEngine>::G2Affine;   // the group over which the proof is computed
 pub type ProofType<E> = DecompProof<E>;   		   // the type of output decomposition proofs
@@ -67,9 +71,13 @@ impl<E: PairingEngine> DecompProof<E> {
 	// Create a proof system for proving knowledge of discrete log
 	let dlk = DLKProof { srs: DLKSRS::<ProofGroup::<E>> { g_public_key: config.srs.g2 } };
 
-	Ok(dlk
-           .verify(&self.gs, &self.proof)
-           .unwrap())                            // TODO: what if the dlk produces an error???
+	// If you intercept a NIZKError, return a PVSSError variant.
+	if dlk.verify(&self.gs, &self.proof)
+		.is_err() {
+	    return Err(PVSSError::NIZKProofDoesNotVerifyError);
+	}
+
+	Ok(())
     }
 
     pub fn digest(&mut self) -> Digest {
@@ -98,13 +106,18 @@ pub fn message_from_pi_i<E: PairingEngine>(pi_i: DecompProof<E>) -> Result<Vec<u
 #[cfg(test)]
 mod test {
 
-    use ark_bls12_381::{Bls12_381 as E};   // implements PairingEngine
+    use ark_bls12_381::Bls12_381 as E;   // implements PairingEngine
+    use ark_ec::PairingEngine;
     use ark_poly::UVPolynomial;
 
-    use crate::signature::{utils::tests::check_serialization};
+    use crate::signature::utils::tests::check_serialization;
     use crate::modified_scrape::{decomp::Decomp, srs::SRS, poly::Polynomial, config::Config};
 
     use rand::thread_rng;
+    use ark_std::UniformRand;
+
+    use super::DecompProof;
+
 
     #[test]
     fn test_simple_decomp_proof() {
@@ -119,6 +132,28 @@ mod test {
 	let dproof = Decomp::<E>::generate(rng, &conf, &poly.coeffs[0]).unwrap();
 
 	dproof.verify(&conf).unwrap()
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_invalid_decomp_proof() {
+        let rng = &mut thread_rng();
+        let srs = SRS::<E>::setup(rng).unwrap();   // setup PVSS scheme's SRS
+
+        let t = 3;
+        let n = 10;
+        let conf = Config { srs, degree: t, num_participants: n };
+        let poly = Polynomial::<E>::rand(t, rng);
+
+        let mut dproof = Decomp::<E>::generate(rng, &conf, &poly.coeffs[0]).unwrap();
+
+        // Malform the proof
+        dproof.proof.1 = <E as PairingEngine>::Fr::rand(rng);
+
+        // Create a "bad" proof
+        let dproof_bad = DecompProof { proof: dproof.proof, gs: dproof.gs };
+        
+        dproof_bad.verify(&conf).unwrap();   // PVSSError::NIZKProofDoesNotVerifyError
     }
 
     #[test]
