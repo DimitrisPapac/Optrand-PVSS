@@ -56,6 +56,8 @@ pub enum PVSSError<E: PairingEngine> {
     EdDSAInvalidSignatureError,
     #[error("EdDSA batch of signatures is invalid")]
     EdDSAInvalidSignatureBatchError,
+    #[error("NIZK proof does not verify")]
+    NIZKProofDoesNotVerifyError,
 
 
     #[error("Ratio incorrect")]
