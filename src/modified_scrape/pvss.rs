@@ -12,8 +12,8 @@ pub struct PVSSCore<E>
 where
     E: PairingEngine,
 {
-    pub encs: Vec<E::G1Projective>,   // vector of encryptions c
-    pub comms: Vec<E::G2Projective>,  // vector of commitments v
+    pub encs: Vec<E::G1Projective>,    // vector of encryptions c
+    pub comms: Vec<E::G2Projective>,   // vector of commitments v
 }
 
 impl<E> PVSSCore<E>
@@ -53,6 +53,8 @@ where
             return Err(PVSSError::MismatchedCommitmentsEncryptionsError(self.comms.len(), other.encs.len()));
         }
 
+        // At this point, other.comms.len() == other.encs.len() also holds.
+
         // Aggregate PVSS cores
         let result = Self {
                 encs: self
@@ -87,11 +89,8 @@ pub struct PVSSShareSecrets<E: PairingEngine> {
 #[cfg(test)]
 mod test {
 
-    use crate::signature::utils::tests::check_serialization;
-
-    use std::ops::Neg;
-
     use super::PVSSCore;
+    use crate::signature::utils::tests::check_serialization;
 
     use ark_ff::Zero;
     use ark_ec::PairingEngine;
@@ -99,16 +98,49 @@ mod test {
     use ark_bls12_381::{
 	    Bls12_381 as E,   // type Bls12_381 = Bls12<Parameters> (Bls12 implements PairingEngine)
     };
+
     use rand::thread_rng;
+    use std::ops::Neg;
 
     #[test]
     fn test_empty() {
         let size: usize = 10;
 
-	let core = PVSSCore::<E>::empty(size);
+        let core = PVSSCore::<E>::empty(size);
 
-	assert!(core.encs.iter().all(|&x| x == <E as PairingEngine>::G1Projective::zero()));
-	assert!(core.comms.iter().all(|&x| x == <E as PairingEngine>::G2Projective::zero()));
+        assert!(core.encs.iter().all(|&x| x == <E as PairingEngine>::G1Projective::zero()));
+        assert!(core.comms.iter().all(|&x| x == <E as PairingEngine>::G2Projective::zero()));
+    }
+
+    #[test]
+    fn test_eq() {
+        let size: usize = 10;
+
+        let core1 = PVSSCore::<E>::empty(size);
+        let core2 = PVSSCore::<E>::empty(size);
+
+        assert!(core1 == core2)
+    }
+
+    #[test]
+    fn test_neq() {
+        let size: usize = 10;
+        let rng = &mut thread_rng();
+
+        let core1 = vec![<E as PairingEngine>::G1Projective::rand(rng); size];
+        let core2 = vec![<E as PairingEngine>::G1Projective::rand(rng); size];
+
+        assert!(core1 != core2)
+    }
+
+    #[test]
+    fn test_eq_different_lengths() {
+        let size: usize = 10;
+
+        let core1 = PVSSCore::<E>::empty(size);
+        let core2 = PVSSCore::<E>::empty(size + 1);
+
+        assert!(core1 != core2)
     }
 
     #[test]
@@ -120,12 +152,12 @@ mod test {
         let comms = vec![<E as PairingEngine>::G2Projective::rand(rng); size];
 
 	let core1 = PVSSCore::<E> {
-            encs: encs.clone(),
+            encs:  encs.clone(),
             comms: comms.clone(),
         };
 
         let core2 = PVSSCore::<E> {
-            encs: encs.iter().map(|&x| x.neg()).collect(),
+            encs:  encs.iter().map(|&x| x.neg()).collect(),
             comms: comms.iter().map(|&x| x.neg()).collect(),
         };
 
@@ -213,7 +245,7 @@ mod test {
         let rng = &mut thread_rng();
         let size = 10;
 
-	let core = PVSSCore::<E> {
+	    let core = PVSSCore::<E> {
             encs:  vec![<E as PairingEngine>::G1Projective::rand(rng); size],
             comms: vec![<E as PairingEngine>::G2Projective::rand(rng); size],
         };
