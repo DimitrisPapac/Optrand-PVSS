@@ -105,10 +105,10 @@ mod test {
     fn test_empty() {
         let size: usize = 10;
 
-	    let core = PVSSCore::<E>::empty(size);
+	let core = PVSSCore::<E>::empty(size);
 
-	    assert!(core.encs.iter().all(|&x| x == <E as PairingEngine>::G1Projective::zero()));
-	    assert!(core.comms.iter().all(|&x| x == <E as PairingEngine>::G2Projective::zero()));
+	assert!(core.encs.iter().all(|&x| x == <E as PairingEngine>::G1Projective::zero()));
+	assert!(core.comms.iter().all(|&x| x == <E as PairingEngine>::G2Projective::zero()));
     }
 
     #[test]
@@ -119,7 +119,7 @@ mod test {
         let encs = vec![<E as PairingEngine>::G1Projective::rand(rng); size];
         let comms = vec![<E as PairingEngine>::G2Projective::rand(rng); size];
 
-	    let core1 = PVSSCore::<E> {
+	let core1 = PVSSCore::<E> {
             encs: encs.clone(),
             comms: comms.clone(),
         };
@@ -197,7 +197,7 @@ mod test {
 
         let core1 = PVSSCore::<E> {
 	        encs:  vec![<E as PairingEngine>::G1Projective::zero(); size],
-	        comms: vec![<E as PairingEngine>::G2Projective::zero(); size+1],
+	        comms: vec![<E as PairingEngine>::G2Projective::zero(); size+1],   // mismatch with enc's length
         };
 
         let core2 = PVSSCore::<E> {
