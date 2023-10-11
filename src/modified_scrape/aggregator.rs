@@ -120,12 +120,12 @@ where
         }
 
 	// Verify the "core" PVSS share against the provided decomposition proof.
-	self.core_verify(rng, &share.decomp_proof, &share.pvss_core)?;
+	self.core_verify(rng, &share.signed_proof.decomp_proof, &share.pvss_core)?;
 
         // Verify signature on decomposition proof against participant i's public key:
-	let digest = share.decomp_proof.digest();
+	let digest = share.signed_proof.decomp_proof.digest();
 
-	if share.signature_on_decomp.verify(&digest, &participant.public_key_ed).is_err() {
+	if share.signed_proof.signature_on_decomp.verify(&digest, &participant.public_key_ed).is_err() {
 	    return Err(PVSSError::EdDSAInvalidSignatureError);
 	}
 
@@ -157,7 +157,7 @@ where
             return Err(PVSSError::DualCodeError);
         }
 	
-	// Pairing check: e(pk_i, com_i) = e(enc_i, g2)
+	// Pairing check: e(pk_i, com_i) = e(enc_i, g2).
 
 	let correct_encryptions = (0..self.config.num_participants)
 	        .all(|i| { let pairs = [
