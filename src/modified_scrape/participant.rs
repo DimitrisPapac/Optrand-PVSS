@@ -1,7 +1,13 @@
+use crate::{
+    PublicKey,
+    signature::scheme::BatchVerifiableSignatureScheme,
+};
+
 use ark_ec::PairingEngine;
 use ark_serialize::{CanonicalSerialize, CanonicalDeserialize, SerializationError, Read, Write};
-use crate::{PublicKey, signature::scheme::BatchVerifiableSignatureScheme};
+
 use std::marker::PhantomData;
+
 
 // Struct ParticipantState models the states that each participant in the PVSS
 // scheme goes through. (UNUSED)
@@ -23,5 +29,5 @@ pub struct Participant<
     pub id: usize,                         // participant id
     pub public_key_sig: SSIG::PublicKey,   // public (encryption) key (in G1)
     pub public_key_ed: PublicKey,          // EdDSA public (verification) key
-    // pub state: ParticipantState,           // participant current state
+    // pub state: ParticipantState,        // participant current state
 }
