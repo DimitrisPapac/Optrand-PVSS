@@ -1,6 +1,10 @@
-use crate::{modified_scrape::participant::Participant, SecretKey};
+use crate::{
+    modified_scrape::participant::Participant,
+    signature::scheme::BatchVerifiableSignatureScheme,
+    SecretKey,
+};
+
 use ark_ec::PairingEngine;
-use crate::signature::scheme::BatchVerifiableSignatureScheme;
 
 // Struct Dealer models the aspects of each party in the network, when acting as a dealer
 // in the PVSS scheme.
