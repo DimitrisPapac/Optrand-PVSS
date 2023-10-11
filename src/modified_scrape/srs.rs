@@ -1,6 +1,6 @@
+use crate::modified_scrape::errors::PVSSError;
 use ark_ec::{PairingEngine, ProjectiveCurve};
 use ark_ff::UniformRand;
-use crate::modified_scrape::errors::PVSSError;
 use rand::Rng;
 
 /* The Structured Reference String (SRS) of the modified SCRAPE PVSS scheme. */
