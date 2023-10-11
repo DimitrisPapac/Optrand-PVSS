@@ -1,6 +1,7 @@
 use crate::Scalar;
-use ark_ff::{Field, PrimeField};
 use ark_ec::{PairingEngine, AffineCurve, ProjectiveCurve};
+use ark_ff::{Field, PrimeField};
+
 
 // Struct DecryptedShare represents a decrypted share obtained when a node cancels out its secret
 // key from some given encrypted share.
