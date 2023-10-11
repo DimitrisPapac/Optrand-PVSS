@@ -130,8 +130,14 @@ mod test {
         let size: usize = 10;
         let rng = &mut thread_rng();
 
-        let core1 = vec![<E as PairingEngine>::G1Projective::rand(rng); size];
-        let core2 = vec![<E as PairingEngine>::G1Projective::rand(rng); size];
+        let encs1 = vec![<E as PairingEngine>::G1Projective::rand(rng); size];
+        let encs2 = vec![<E as PairingEngine>::G1Projective::rand(rng); size];
+
+        let comms1 = vec![<E as PairingEngine>::G2Projective::rand(rng); size];
+        let comms2 = vec![<E as PairingEngine>::G2Projective::rand(rng); size];
+
+        let core1 = PVSSCore::<E> {encs: encs1, comms: comms1};
+        let core2 = PVSSCore::<E> {encs: encs2, comms: comms2};
 
         assert!(core1 != core2)
     }
@@ -147,7 +153,7 @@ mod test {
     }
 
     #[test]
-    fn test_aggregate() {
+    fn test_core_aggregation() {
         let rng = &mut thread_rng();
         let size: usize = 10;
 
