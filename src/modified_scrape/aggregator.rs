@@ -18,7 +18,7 @@ use ark_ec::{PairingEngine, ProjectiveCurve};   // msm::VariableBaseMSM, AffineC
 use ark_ff::{One, Zero};
 use ark_std::{
     collections::BTreeMap,
-    ops::AddAssign,
+    //ops::AddAssign,
 };
 
 use rand::Rng;
@@ -146,7 +146,8 @@ where
            agg_share.pvss_core.comms.len() != self.config.num_participants {
 	        return Err(PVSSError::MismatchedCommitsEncryptionsParticipantsError(
 			    agg_share.pvss_core.encs.len(),
-			    agg_share.pvss_core.comms.len(), self.config.num_participants));
+			    agg_share.pvss_core.comms.len(),
+                            self.config.num_participants));
 	}
 
         // if agg_share.contributions.len() < self.config.degree {}
@@ -178,7 +179,7 @@ where
 	let point = lagrange_interpolation_simple::<E>(&agg_share.pvss_core.comms, self.config.degree as u64).unwrap();   // E::G2Projective
 
 	//let mut gs_total = E::G2Affine::zero();
-    let mut gs_total = E::G2Projective::zero();
+        let mut gs_total = E::G2Projective::zero();
 
 	// Contributions are essentially signed decomposition proofs.
 	for (_participant_id, contribution) in agg_share.contributions.iter() {
@@ -186,11 +187,11 @@ where
 		return Err(PVSSError::DecompositionInTranscriptError);
 	    }
 
-        gs_total.add_assign_mixed(&contribution.decomp_proof.gs);
-	    //gs_total += contribution.decomp_proof.gs;
+            //gs_total += contribution.decomp_proof.gs;
+            gs_total.add_assign_mixed(&contribution.decomp_proof.gs);
 	}
 
-	if gs_total != point {   // point.into_affine()
+	if gs_total != point {   // if gs_total != point.into_affine()
 	    return Err(PVSSError::AggregationReconstructionMismatchError);
 	}
 
@@ -209,6 +210,7 @@ where
 	for dproof in dproofs {   // not very elegant
 	    dproof.hash(&mut hasher);
 	}
+
         let byte_array= hasher.finish().to_ne_bytes();   // TODO: use cryptographically secure hash
         let mut arr = [0; 32];
         arr[..byte_array.len()].copy_from_slice(&byte_array);
