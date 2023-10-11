@@ -48,7 +48,6 @@ impl<E: PairingEngine> Decomp<E> {
 	let dlk_srs = DLKSRS::<ProofGroup::<E>> { g_public_key: generator };
 	let dlk = DLKProof { srs: dlk_srs };   // initialize proof system for DLK NIZKs.
 
-	// Double-check with Adithya's code for Dleq for increased efficiency/security.
 	let proof = dlk.prove(rng, &secret).unwrap();
 
 	Ok(DecompProof { proof, gs })
