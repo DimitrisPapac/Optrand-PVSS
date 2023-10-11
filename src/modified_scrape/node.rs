@@ -154,7 +154,7 @@ where
             participant_id: self.dealer.participant.id,
             pvss_core,
 	        signed_proof,
-        };
+    };
 
 	// Set dealer instance's state to DealerShared.
         // self.dealer.participant.state = ParticipantState::DealerShared;
