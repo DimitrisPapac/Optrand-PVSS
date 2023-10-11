@@ -6,7 +6,7 @@ use crate::{
 use ark_ec::{PairingEngine, ProjectiveCurve};
 use ark_ff::{Field, Zero, One, PrimeField};
 use ark_poly::{UVPolynomial, Polynomial as Poly, polynomial::univariate::DensePolynomial};
-use ark_std::ops::AddAssign;
+//use ark_std::ops::AddAssign;
 
 use rand::Rng;
 
@@ -139,7 +139,7 @@ mod test {
         Scalar,
     };
 
-    use ark_bls12_381::{Bls12_381 as E};   // implements PairingEngine
+    use ark_bls12_381::Bls12_381 as E;   // implements PairingEngine
     use ark_ec::{PairingEngine, AffineCurve};
     use ark_ff::PrimeField;
     use ark_poly::{UVPolynomial, Polynomial as Poly};
@@ -176,10 +176,10 @@ mod test {
 
     #[test]
     fn test_ensure_degree() {
-	    let rng = &mut thread_rng();
+        let rng = &mut thread_rng();
         let deg = rng.gen_range(MIN_DEGREE, MAX_DEGREE) as u64;
 
-	    // we use random group elemements from G_2 since it doesn't matter here.
+        // we use random group elemements from G_2 since it doesn't matter here.
         let evals = vec![<E as PairingEngine>::G2Projective::rand(rng); (deg+4) as usize];
         assert_eq!(ensure_degree::<E, _>(rng, &evals, deg).unwrap(), ());
     }
@@ -188,10 +188,10 @@ mod test {
     #[test]
     #[should_panic]
     fn test_ensure_degree_insufficient_evals() {
-	    let rng = &mut thread_rng();
+        let rng = &mut thread_rng();
         let deg = rng.gen_range(MIN_DEGREE, MAX_DEGREE) as u64;
 
-	    // we use random group elemements from G_2 since it doesn't matter here.
+        // we use random group elemements from G_2 since it doesn't matter here.
         let evals = vec![<E as PairingEngine>::G2Projective::rand(rng); (deg-1) as usize];
         ensure_degree::<E, _>(rng, &evals, deg).unwrap();
     }
@@ -200,13 +200,13 @@ mod test {
     #[test]
     #[should_panic]
     fn test_lagrange_interpolation_simple_insufficient_evals() {
-	let rng = &mut thread_rng();
+        let rng = &mut thread_rng();
         let deg = rng.gen_range(MIN_DEGREE, MAX_DEGREE) as u64;
 
-	// we use random group elemements from G_2 since it doesn't matter here.
+        // we use random group elemements from G_2 since it doesn't matter here.
         let evals = vec![<E as PairingEngine>::G2Projective::rand(rng); (deg-1) as usize];
 
-	_ = lagrange_interpolation_simple::<E>(&evals, deg).unwrap();
+        _ = lagrange_interpolation_simple::<E>(&evals, deg).unwrap();
     }
 
 
@@ -230,7 +230,6 @@ mod test {
 
 	assert_eq!(reconstructed_secret, shared_secret);
     }
-
 
 
     #[test]
