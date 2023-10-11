@@ -106,7 +106,7 @@ impl<E: PairingEngine> PVSSAggregatedShare<E>
             .map(
                 |i| match (self.contributions.get(&i), other.contributions.get(&i)) {
                     (Some(a), Some(b)) => {
-                        if a.signed_proof.decomp_proof.gs != b.signed_proof.decomp_proof.gs {
+                        if a.decomp_proof.gs != b.decomp_proof.gs {
                             return Err(PVSSError::TranscriptDifferentCommitments);
                         }
                         // Only keep a's signed proof
