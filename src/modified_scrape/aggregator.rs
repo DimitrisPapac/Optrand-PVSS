@@ -177,7 +177,8 @@ where
 
 	let point = lagrange_interpolation_simple::<E>(&agg_share.pvss_core.comms, self.config.degree as u64).unwrap();   // E::G2Projective
 
-	let mut gs_total = E::G2Affine::zero();
+	//let mut gs_total = E::G2Affine::zero();
+    let mut gs_total = E::G2Projective::zero();
 
 	// Contributions are essentially signed decomposition proofs.
 	for (_participant_id, contribution) in agg_share.contributions.iter() {
@@ -185,10 +186,11 @@ where
 		return Err(PVSSError::DecompositionInTranscriptError);
 	    }
 
-	    gs_total += contribution.decomp_proof.gs;
+        gs_total.add_assign_mixed(&contribution.decomp_proof.gs);
+	    //gs_total += contribution.decomp_proof.gs;
 	}
 
-	if gs_total != point.into_affine() {
+	if gs_total != point {   // point.into_affine()
 	    return Err(PVSSError::AggregationReconstructionMismatchError);
 	}
 
