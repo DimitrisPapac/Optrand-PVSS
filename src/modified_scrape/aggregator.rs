@@ -49,7 +49,7 @@ where
 impl<E, SSIG> PVSSAggregator<E, SSIG>
 where
     E: PairingEngine,
-    <E as PairingEngine>::G2Affine: AddAssign,
+    ///<E as PairingEngine>::G2Affine: AddAssign,
     SSIG: BatchVerifiableSignatureScheme<PublicKey = E::G1Affine, Secret = E::Fr>,
 {
     // Utility method for verifying individual "core" PVSS shares.
