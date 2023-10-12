@@ -188,7 +188,6 @@ impl SecretKey {
     }
 }
 
-
 impl Drop for SecretKey {
     fn drop(&mut self) {
         self.0.iter_mut().for_each(|x| *x = 0);
