@@ -13,11 +13,8 @@ use ark_ec::PairingEngine;
 use ed25519_dalek as dalek;
 use ed25519_dalek::ed25519;
 use ed25519_dalek::Signer as _;
-use rand::rngs::OsRng;
-use rand::{CryptoRng, RngCore};
-use std::array::TryFromSliceError;
-use std::convert::{TryFrom, TryInto};
-use std::fmt;
+use rand::{CryptoRng, RngCore, rngs::OsRng};
+use std::{array::TryFromSliceError, convert::{TryFrom, TryInto}, fmt};
 use ark_serialize::{CanonicalSerialize, CanonicalDeserialize, SerializationError, Read, Write};
 
 ///////////////////////////////////////////////////////////////////
@@ -307,7 +304,7 @@ impl CanonicalSerialize for Signature {
     }
 
     fn serialized_size(&self) -> usize {
-	    self.part1.iter()
+        self.part1.iter()
             .map(|item| item.serialized_size())
             .sum::<usize>() +
         self.part2.iter()
