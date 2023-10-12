@@ -285,7 +285,6 @@ impl Signature {
         dalek::verify_batch(&messages[..], &signatures[..], &keys[..])
     }
 
-
     // Added to enable serialization and deserialization.
     pub fn to_base64(&self) -> String {
         base64::encode(&self.flatten())
