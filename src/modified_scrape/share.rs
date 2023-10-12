@@ -167,28 +167,35 @@ impl<E: PairingEngine> PVSSAggregatedShare<E>
 #[cfg(test)]
 mod test {
 
-    use crate::signature::scheme::SignatureScheme;
-    use crate::signature::utils::tests::check_serialization;
+    use crate::{
+        generate_production_keypair,
+        modified_scrape::{
+            config::Config,
+            decomp::Decomp,
+            poly::Polynomial as Poly,
+            pvss::PVSSCore,
+            share::{PVSSAggregatedShare, PVSSShare, SignedProof},
+            srs::SRS,
+        },
+        signature::{
+            scheme::SignatureScheme,
+            schnorr::{SchnorrSignature, srs::SRS as SCHSRS},
+            utils::tests::check_serialization,
+        },
+        Scalar,
+        Signature,
+    };
 
-    use crate::{modified_scrape::share::PVSSCore, generate_production_keypair};
-    use crate::modified_scrape::{srs::SRS, config::Config, share::SignedProof};
-    use crate::modified_scrape::{decomp::Decomp, poly::Polynomial as Poly};
-    use crate::Scalar;
-    use crate::Signature;
-    use crate::signature::schnorr::{SchnorrSignature, srs::SRS as SCHSRS};
-    use crate::modified_scrape::share::PVSSAggregatedShare;
-
-    use ark_ec::{PairingEngine, AffineCurve, ProjectiveCurve};
-    use ark_ff::{PrimeField, Zero};
-    use ark_poly::{Polynomial, UVPolynomial};
-    use ark_std::UniformRand;
-    use ark_std::collections::BTreeMap;
     use ark_bls12_381::{
 	    Bls12_381 as E,   // type Bls12_381 = Bls12<Parameters> (Bls12 implements PairingEngine)
     };
+    use ark_ec::{PairingEngine, AffineCurve, ProjectiveCurve};
+    use ark_ff::{PrimeField, Zero};
+    use ark_poly::{Polynomial, UVPolynomial};
+    use ark_std::{collections::BTreeMap, UniformRand};
+    
     use rand::thread_rng;
-
-    use super::PVSSShare;
+    
 
     #[test]
     fn test_generate_valid_signed_proof() {
