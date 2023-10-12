@@ -178,7 +178,7 @@ mod test {
             srs::SRS,
         },
         signature::{
-            scheme::{SignatureScheme, AggregatableSignatureScheme},
+            scheme::SignatureScheme,
             schnorr::{SchnorrSignature, srs::SRS as SCHSRS},
             utils::tests::check_serialization,
         },
@@ -775,5 +775,5 @@ mod test {
 
         assert_eq!(aggr_share, recon_share);
     }
-    
+
 }
