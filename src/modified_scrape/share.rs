@@ -640,7 +640,7 @@ mod test {
     }
 
     #[test]
-    fn test_serialization_aggregated_share() {
+    fn test_serialization_deserialization_aggregated_share() {
         let rng = &mut thread_rng();
         let t = 3;
         let n = 10;
@@ -768,25 +768,12 @@ mod test {
         aggr_share = aggr_share.aggregate_pvss_share(&pvss_share_a).unwrap();
         aggr_share = aggr_share.aggregate_pvss_share(&pvss_share_b).unwrap();
 
-        // println!("aggr_share: {:?}", aggr_share);
-
-        //check_serialization(aggr_share.clone());
-
-        println!("The original share is:\n\n{:?}", aggr_share);
-
         let mut compressed_bytes = Vec::new();
         aggr_share.serialize(&mut compressed_bytes).unwrap();
 
-        println!("\n\n");
-        println!("The compressed bytes are:\n\n{:?}", compressed_bytes);
-        println!("\n\n");
-
         let recon_share: PVSSAggregatedShare<E>= PVSSAggregatedShare::deserialize(&compressed_bytes[..]).unwrap();
 
-        println!("The reconstructed share is:\n\n{:?}", recon_share);
-
         assert_eq!(aggr_share, recon_share);
-        // Note: Run the following command to avoid getting mixed output:
-        // cargo test test_serialization_aggregated_share -- --nocapture
     }
+    
 }
