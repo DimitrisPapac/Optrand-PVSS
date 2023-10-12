@@ -30,9 +30,6 @@ pub type Scalar<E> = <E as PairingEngine>::Fr;
 /// A polynomial with the various coefficients in the Scalar Group
 pub type Polynomial<E> = DensePolynomial<Scalar<E>>;
 
-///////////////////////////////////////////////////////////////////
-
-
 //////////////////////////////////////////////////////////////////
 
 // EdDSA definitions
@@ -279,11 +276,13 @@ impl Signature {
         let mut messages: Vec<&[u8]> = Vec::new();
         let mut signatures: Vec<dalek::Signature> = Vec::new();
         let mut keys: Vec<dalek::PublicKey> = Vec::new();
+
         for (key, sig) in votes.into_iter() {
             messages.push(&digest.0[..]);
             signatures.push(ed25519::signature::Signature::from_bytes(&sig.flatten())?);
             keys.push(dalek::PublicKey::from_bytes(&key.0)?);
         }
+
         dalek::verify_batch(&messages[..], &signatures[..], &keys[..])
     }
 
@@ -332,10 +331,7 @@ impl CanonicalDeserialize for Signature {
 }
 
 
-
-
 ////////////////////////////////////////////////////////////////////////////////////////
-
 
 
 // The target group GT of the pairing
