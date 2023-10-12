@@ -94,7 +94,7 @@ impl<E: PairingEngine> PVSSAggregatedShare<E>
     // Method for aggregating two PVSS aggregated shares.
     // Returns the resulting aggregated PVSS share.
     pub fn aggregate(&self, other: &Self) -> Result<Self, PVSSError<E>> {
-	// Ensure that both PVSS aggregated shares are under a common configuration.
+        // Ensure that both PVSS aggregated shares are under a common configuration.
         if self.degree != other.degree || self.num_participants != other.num_participants {
             return Err(PVSSError::TranscriptDifferentConfig(
                 self.degree,
@@ -104,7 +104,7 @@ impl<E: PairingEngine> PVSSAggregatedShare<E>
             ));
         }
 
-	// Combine contributions of self and other into a single BTreeMap.
+        // Combine contributions of self and other into a single BTreeMap.
         let contributions = (0..self.num_participants)   // this is: n x amortized O(1)
             .map(
                 |i| match (self.contributions.get(&i), other.contributions.get(&i)) {
@@ -131,7 +131,7 @@ impl<E: PairingEngine> PVSSAggregatedShare<E>
 
         let aggregated_share = Self {
             num_participants: self.num_participants,
-	    degree: self.degree,
+            degree: self.degree,
             pvss_core: self.pvss_core.aggregate(&other.pvss_core).unwrap(),   // aggregate the two cores of PVSS shares
             contributions: contributions.into_iter().collect(),
         };
@@ -178,7 +178,7 @@ mod test {
             srs::SRS,
         },
         signature::{
-            scheme::SignatureScheme,
+            scheme::{SignatureScheme, AggregatableSignatureScheme},
             schnorr::{SchnorrSignature, srs::SRS as SCHSRS},
             utils::tests::check_serialization,
         },
@@ -193,6 +193,8 @@ mod test {
     use ark_ff::{PrimeField, Zero};
     use ark_poly::{Polynomial, UVPolynomial};
     use ark_std::{collections::BTreeMap, UniformRand};
+
+    use ark_serialize::{CanonicalSerialize, CanonicalDeserialize};
     
     use rand::thread_rng;
     
@@ -768,6 +770,23 @@ mod test {
 
         // println!("aggr_share: {:?}", aggr_share);
 
-        check_serialization(aggr_share);
+        //check_serialization(aggr_share.clone());
+
+        println!("The original share is:\n\n{:?}", aggr_share);
+
+        let mut compressed_bytes = Vec::new();
+        aggr_share.serialize(&mut compressed_bytes).unwrap();
+
+        println!("\n\n");
+        println!("The compressed bytes are:\n\n{:?}", compressed_bytes);
+        println!("\n\n");
+
+        let recon_share: PVSSAggregatedShare<E>= PVSSAggregatedShare::deserialize(&compressed_bytes[..]).unwrap();
+
+        println!("The reconstructed share is:\n\n{:?}", recon_share);
+
+        assert_eq!(aggr_share, recon_share);
+        // Note: Run the following command to avoid getting mixed output:
+        // cargo test test_serialization_aggregated_share -- --nocapture
     }
 }
