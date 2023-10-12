@@ -625,7 +625,142 @@ mod test {
             signed_proof: sproof,
         };
 
+	    // println!("pvss_share: {:?}", pvss_share);
+
         check_serialization(pvss_share);
     }
 
+    #[test]
+    fn test_serialization_aggregated_share() {
+        let rng = &mut thread_rng();
+        let t = 3;
+        let n = 10;
+
+        let id_a = 2_usize;
+        let id_b = 3_usize;
+
+        // PVSS setup
+        let srs = SRS::<E>::setup(rng).unwrap();   // setup PVSS scheme's SRS
+        let conf = Config { srs, degree: t, num_participants: n };
+
+        // Schnorr SRS (over group G1)
+        let schnorr_srs = SCHSRS::<<E as PairingEngine>::G1Affine>::setup(rng).unwrap();
+        let schnorr_sig = SchnorrSignature { srs: schnorr_srs };
+
+        // Sample a random degree t polynomial for party A.
+	    let poly_a = Poly::<E>::rand(t, rng);
+        let p_0_a = poly_a[0];   // the free term
+
+        // Sample a random degree t polynomial for party B.
+        let poly_b = Poly::<E>::rand(t, rng);
+        let p_0_b = poly_b[0];   // the free term
+
+        // Schnorr setup for party A
+        let (_schorr_sk_a, schnorr_pk_a) = schnorr_sig.generate_keypair(rng).unwrap();
+
+        // Schnorr setup for party B
+        let (_schorr_sk_b,schnorr_pk_b) = schnorr_sig.generate_keypair(rng).unwrap();
+
+        // EdDSA setup for party A
+        let (_pk_sig_a, sk_sig_a) = generate_production_keypair();
+
+        // EdDSA setup for party B
+        let (_pk_sig_b, sk_sig_b) = generate_production_keypair();
+
+        // Generate decomposition proof for party A.
+        let mut dproof_a = Decomp::<E>::generate(rng, &conf, &p_0_a).unwrap();
+
+        // Generate decomposition proof for party B.
+        let mut dproof_b = Decomp::<E>::generate(rng, &conf, &p_0_b).unwrap();
+
+        // Sign party A's proof.
+        let sig_a = Signature::new(&mut dproof_a.digest(), &sk_sig_a);
+
+        // Sign party B's proof.
+        let sig_b = Signature::new(&mut dproof_b.digest(), &sk_sig_b);
+
+        // Compose party A's signed proof.
+        let sproof_a = SignedProof {decomp_proof: dproof_a, signature_on_decomp: sig_a};
+
+        // Compose party B's signed proof.
+        let sproof_b = SignedProof {decomp_proof: dproof_b, signature_on_decomp: sig_b};
+
+        // Evaluate polyA(j) for all j in {1, ..., n}.
+        let evals_a = (1..=n)
+	        .map(|j| poly_a.evaluate(&Scalar::<E>::from(j as u64)))
+	        .collect::<Vec<_>>();
+
+        // Evaluate polyB(j) for all j in {1, ..., n}.
+        let evals_b = (1..=n)
+	        .map(|j| poly_b.evaluate(&Scalar::<E>::from(j as u64)))
+	        .collect::<Vec<_>>();
+
+        // Compute party A's commitments for all nodes in {0, ..., n-1}.
+        // Recall that G2 is the commitment group.
+        let comms_a = (0..=(n-1))
+	        .map(|j| conf.srs.g2.mul(evals_a[j].into_repr()))
+	        .collect::<Vec<_>>();
+
+        // Compute party B's commitments for all nodes in {0, ..., n-1}.
+        // Recall that G2 is the commitment group.
+        let comms_b = (0..=(n-1))
+	        .map(|j| conf.srs.g2.mul(evals_b[j].into_repr()))
+	        .collect::<Vec<_>>();
+
+        // Dummy vector of Schnorr public keys.
+        let mut schnorr_pks = vec![<E as PairingEngine>::G1Projective::rand(rng); n];
+        // We only care about party A and B's public keys being genuine.
+        schnorr_pks[id_a] = schnorr_pk_a.into_projective();
+        schnorr_pks[id_b] = schnorr_pk_b.into_projective();
+
+        // Compute party A's encryptions for all nodes in {0, ..., n-1}.
+        let encs_a: Vec<_> = (0..=(n-1))
+	        .map(|j| {
+                    schnorr_pks[j]
+                        .into_affine()
+                        .mul(evals_a[j].into_repr())
+                    })
+                .collect::<_>();
+
+        // Compute party B's encryptions for all nodes in {0, ..., n-1}.
+        let encs_b: Vec<_> = (0..=(n-1))
+	        .map(|j| {
+                schnorr_pks[j]
+                    .into_affine()
+                    .mul(evals_b[j].into_repr())
+                    })
+            .collect::<_>();
+
+        // Compose A's PVSS core.
+        let pvss_core_a = PVSSCore::<E> {comms: comms_a.clone(), encs: encs_a.clone()};
+
+        // Compose B's PVSS core.
+        let pvss_core_b = PVSSCore::<E> {comms: comms_b.clone(), encs: encs_b.clone()};
+
+        // Create A's PVSSShare.
+        let pvss_share_a = PVSSShare::<E> {
+            participant_id: id_a,
+            pvss_core: pvss_core_a.clone(),
+            signed_proof: sproof_a.clone(),
+        };
+
+        // Create B's PVSSShare.
+        let pvss_share_b = PVSSShare::<E> {
+            participant_id: id_b,
+            pvss_core: pvss_core_b.clone(),
+            signed_proof: sproof_b.clone(),
+        };
+
+        // Create an AggregatedPVSSShare to hold the result.
+        let mut aggr_share = PVSSAggregatedShare::<E>::empty(t, n);
+
+        // Aggregate pvss_shares into aggr_share.
+        // Note: Order of aggregation is irrelevant.
+        aggr_share = aggr_share.aggregate_pvss_share(&pvss_share_a).unwrap();
+        aggr_share = aggr_share.aggregate_pvss_share(&pvss_share_b).unwrap();
+
+        // println!("aggr_share: {:?}", aggr_share);
+
+        check_serialization(aggr_share);
+    }
 }
