@@ -102,15 +102,15 @@ where
     ) -> Result<(), PVSSError<E>> {
 
         // Retrieve the Participant instance using the id within the augmented share.
-	let participant_id = share.participant_id;
+        let participant_id = share.participant_id;
 
         let participant = self
             .participants
             .get(&participant_id)
             .ok_or(PVSSError::<E>::InvalidParticipantId(participant_id))?;
 
-	// Verify correctness of encryption: e(pk_i, v_i) = e(enc_i, g_2).
-	let pairs = [
+        // Verify correctness of encryption: e(pk_i, v_i) = e(enc_i, g_2).
+        let pairs = [
             (participant.public_key_sig.into(), share.pvss_core.comms[participant_id].into_affine().into()),
             (share.pvss_core.encs[participant_id].neg().into_affine().into(), self.config.srs.g2.into()),
         ];
@@ -119,15 +119,24 @@ where
             return Err(PVSSError::EncryptionCorrectnessError);
         }
 
-	// Verify the "core" PVSS share against the provided decomposition proof.
-	self.core_verify(rng, &share.signed_proof.decomp_proof, &share.pvss_core)?;
+        // Verify the "core" PVSS share against the provided decomposition proof.
+        self.core_verify(rng, &share.signed_proof.decomp_proof, &share.pvss_core)?;
 
         // Verify signature on decomposition proof against participant i's public key:
-	let digest = share.signed_proof.decomp_proof.digest();
+        let digest = share.signed_proof.decomp_proof.digest();
 
-	if share.signed_proof.signature_on_decomp.verify(&digest, &participant.public_key_ed).is_err() {
-	    return Err(PVSSError::EdDSAInvalidSignatureError);
-	}
+        println!("Now verifying NIZK proof from party {}", participant_id);
+        println!("\n");
+        //println!("The NIZK proof is:\n{:?}", share.signed_proof.decomp_proof);
+        //println!("\n");
+        println!("NIZK proof's digest is:\n{:?}", digest);
+        println!("\n");
+        println!("Will use verification key:\n{:?}", participant.public_key_ed);
+        println!("\n==========================================\n");
+
+        if share.signed_proof.signature_on_decomp.verify(&digest, &participant.public_key_ed).is_err() {
+            return Err(PVSSError::EdDSAInvalidSignatureError);
+        }
 
         Ok(())
     }
@@ -150,7 +159,7 @@ where
                             self.config.num_participants));
 	}
 
-        // if agg_share.contributions.len() < self.config.degree {}
+    // if agg_share.contributions.len() < self.config.degree {}
 
 	// Coding check for the commitments to ensure that they represent a
 	// commitment to a degree t polynomial.
@@ -195,7 +204,7 @@ where
 	    return Err(PVSSError::AggregationReconstructionMismatchError);
 	}
 
-	// Batch-verification of signatures:
+	// Batch-verification of contributed signatures:
 	let mut dproofs = Vec::new();
 	let mut pks: Vec<PublicKey> = Vec::new();
 	let mut sigs: Vec<Signature> = Vec::new();
@@ -218,7 +227,7 @@ where
 	let digest = Digest(arr);
 	let votes: Zip<Iter<'_, PublicKey>, Iter<'_, Signature>> = pks.iter().zip(sigs.iter());
 	
-	// ERROR OCCURS IN THE FOLLOWING CALL TO THE DALEK LIBRARY.
+	// ERROR OCCURS IN THE FOLLOWING CALL TO THE DALEK LIBRARY!!!
 	if Signature::verify_batch(&digest, votes).is_err() {
 		return Err(PVSSError::EdDSAInvalidSignatureBatchError);
 	}
@@ -234,11 +243,11 @@ where
         share: &mut PVSSShare<E>,
     ) -> Result<(), PVSSError<E>> {
 
-	// Verify the PVSS share.
+        // Verify the PVSS share.
         self.share_verify(rng, share)?;
 
-	// Aggregate the PVSS share into the aggregator's internal aggregated transcript.
-	self.aggregated_tx = self.aggregated_tx.aggregate_pvss_share(&share)?;
+        // Aggregate the PVSS share into the aggregator's internal aggregated transcript.
+        self.aggregated_tx = self.aggregated_tx.aggregate_pvss_share(&share)?;
 
         Ok(())
     }
