@@ -294,7 +294,7 @@ mod test {
     	    private_key_ed: eddsa_keypair_b.1,
             participant: Participant {
                 pairing_type: PhantomData,
-                id: 0,
+                id: 1,
                 public_key_sig: dealer_keypair_sig_b.1,
                 public_key_ed: eddsa_keypair_b.0,
             },
@@ -311,24 +311,7 @@ mod test {
     	    private_key_ed: eddsa_keypair_c.1,
             participant: Participant {
                 pairing_type: PhantomData,
-                id: 0,
-                public_key_sig: dealer_keypair_sig_c.1,
-                public_key_ed: eddsa_keypair_c.0,
-            },
-        };
-
-        // Generate key pairs for party C
-        let dealer_keypair_sig_c = schnorr_sig.generate_keypair(rng).unwrap();   // (sk, pk)
-        let eddsa_keypair_c = generate_production_keypair();                     // (pk, sk)
-
-        // Create the dealer instance for party C
-        let dealer_c: Dealer<Bls12_381,   //Bls12<ark_bls12_381::Parameters>,
-			   SchnorrSignature<<Bls12_381 as PairingEngine>::G1Affine>> = Dealer {
-            private_key_sig: dealer_keypair_sig_c.0,
-    	    private_key_ed: eddsa_keypair_c.1,
-            participant: Participant {
-                pairing_type: PhantomData,
-                id: 0,
+                id: 2,
                 public_key_sig: dealer_keypair_sig_c.1,
                 public_key_ed: eddsa_keypair_c.0,
             },
@@ -345,7 +328,7 @@ mod test {
     	    private_key_ed: eddsa_keypair_d.1,
             participant: Participant {
                 pairing_type: PhantomData,
-                id: 0,
+                id: 3,
                 public_key_sig: dealer_keypair_sig_d.1,
                 public_key_ed: eddsa_keypair_d.0,
             },
@@ -358,7 +341,7 @@ mod test {
             dealer_d.participant.clone()
         ];
         let num_participants = participants_vec.len();
-        let degree = config.degree;
+        let _degree = config.degree;
 
         let mut participants = BTreeMap::new();
         for (id, party) in (0..num_participants).zip(participants_vec) {
@@ -404,9 +387,9 @@ mod test {
         let mut pvss_d = node_d.share(rng).unwrap();
 
         // Party A aggregates its own share
-        node_a.aggregator.receive_share(rng, &mut pvss_a).unwrap();
+        node_a.aggregator.receive_share(rng, &mut pvss_a).unwrap();   // works
         // Party A gets party B's share through communication
-        node_a.aggregator.receive_share(rng, &mut pvss_b).unwrap();
+        node_a.aggregator.receive_share(rng, &mut pvss_b).unwrap();   // EdDSAInvalidSignatureError
 
         // Party B aggregates its own share
         node_b.aggregator.receive_share(rng, &mut pvss_b).unwrap();
