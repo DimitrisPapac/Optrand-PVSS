@@ -218,7 +218,9 @@ where
 	let digest = Digest(arr);
 	let votes: Zip<Iter<'_, PublicKey>, Iter<'_, Signature>> = pks.iter().zip(sigs.iter());
 	
-	if Signature::verify_batch(&digest, votes).is_err() {
+	let res = Signature::verify_batch(&digest, votes);
+	if res.is_err() {
+		println!("EdDSA error occurred:\n{:?}", res.unwrap());
 		return Err(PVSSError::EdDSAInvalidSignatureBatchError);
 	}
 
