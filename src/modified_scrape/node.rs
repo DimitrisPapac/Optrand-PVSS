@@ -351,7 +351,6 @@ mod test {
             },
         };
 
-
         let participants_vec = vec![
             dealer_a.participant.clone(),
             dealer_b.participant.clone(),
@@ -405,24 +404,24 @@ mod test {
         let mut pvss_d = node_d.share(rng).unwrap();
 
         // Party A aggregates its own share
-        node_a.aggregator.receive_share(rng, &mut pvss_a);
+        node_a.aggregator.receive_share(rng, &mut pvss_a).unwrap();
         // Party A gets party B's share through communication
-        node_a.aggregator.receive_share(rng, &mut pvss_b);
+        node_a.aggregator.receive_share(rng, &mut pvss_b).unwrap();
 
         // Party B aggregates its own share
-        node_b.aggregator.receive_share(rng, &mut pvss_b);
+        node_b.aggregator.receive_share(rng, &mut pvss_b).unwrap();
         // Party B gets party A's share through communication
-        node_b.aggregator.receive_share(rng, &mut pvss_a);
+        node_b.aggregator.receive_share(rng, &mut pvss_a).unwrap();
 
         // Party C aggregates its own share
-        node_c.aggregator.receive_share(rng, &mut pvss_c);
+        node_c.aggregator.receive_share(rng, &mut pvss_c).unwrap();
         // Party C gets party D's share through communication
-        node_c.aggregator.receive_share(rng, &mut pvss_d);
+        node_c.aggregator.receive_share(rng, &mut pvss_d).unwrap();
 
         // Party D aggregates its own share
-        node_d.aggregator.receive_share(rng, &mut pvss_d);
+        node_d.aggregator.receive_share(rng, &mut pvss_d).unwrap();
         // Party D gets party C's share through communication
-        node_d.aggregator.receive_share(rng, &mut pvss_c);
+        node_d.aggregator.receive_share(rng, &mut pvss_c).unwrap();
 
         // Parties A and B should at this point hold the same aggregated transcript
         assert_eq!(node_a.aggregator.aggregated_tx, node_b.aggregator.aggregated_tx);
@@ -436,12 +435,12 @@ mod test {
         let agg_share_cd = node_c.aggregator.aggregated_tx.clone();
 
         // Right subcommittee receives the left subcommittee's aggregated share
-        node_c.aggregator.receive_aggregated_share(rng, &agg_share_ab);
-        node_d.aggregator.receive_aggregated_share(rng, &agg_share_ab);
+        node_c.aggregator.receive_aggregated_share(rng, &agg_share_ab).unwrap();
+        node_d.aggregator.receive_aggregated_share(rng, &agg_share_ab).unwrap();
 
         // Left subcommittee receives the right subcommittee's aggregated share
-        node_a.aggregator.receive_aggregated_share(rng, &agg_share_cd);
-        node_b.aggregator.receive_aggregated_share(rng, &agg_share_cd);
+        node_a.aggregator.receive_aggregated_share(rng, &agg_share_cd).unwrap();
+        node_b.aggregator.receive_aggregated_share(rng, &agg_share_cd).unwrap();
 
         // All nodes should now hold the exact same aggregated transcript
         assert_eq!(node_a.aggregator.aggregated_tx, node_b.aggregator.aggregated_tx);
