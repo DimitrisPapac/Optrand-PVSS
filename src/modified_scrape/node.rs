@@ -7,8 +7,8 @@ use crate::{
         participant::Participant,
         pvss::{PVSSCore, PVSSShareSecrets},
 	    share::{PVSSAggregatedShare, PVSSShare, SignedProof},
-	decomp::Decomp,
-	poly::{Polynomial as Poly}
+        decomp::Decomp,
+        poly::Polynomial as Poly,
     },
     Scalar,
     Signature,
@@ -140,6 +140,15 @@ where
 	let mut decomp_proof = Decomp::<E>::generate(rng, &self.aggregator.config, &pvss_share_secrets.p_0).unwrap();
 
         let digest = decomp_proof.digest();
+
+        println!("Party {} now signing NIZK proof:", self.dealer.participant.id);
+        println!("\n");
+        println!("NIZK proof's digest is:\n{:?}", digest);
+        println!("\n");
+        println!("Party {}'s EdDSA signing key is:\n{:?}", self.dealer.participant.id, self.dealer.private_key_ed);
+        println!("\n");
+        println!("Party {}'s EdDSA matching verification key is:\n{:?}", self.dealer.participant.id, self.dealer.participant.public_key_ed);
+        println!("\n==========================================\n");
 
         // Sign the decomposition proof using EdDSA
 	let signature_on_decomp = Signature::new(&digest, &self.dealer.private_key_ed);
@@ -338,7 +347,7 @@ mod test {
             dealer_a.participant.clone(),
             dealer_b.participant.clone(),
             dealer_c.participant.clone(),
-            dealer_d.participant.clone()
+            dealer_d.participant.clone(),
         ];
         let num_participants = participants_vec.len();
         let _degree = config.degree;
@@ -386,25 +395,27 @@ mod test {
         let mut pvss_c = node_c.share(rng).unwrap();
         let mut pvss_d = node_d.share(rng).unwrap();
 
+        println!("LEVEL 1:\n");
+
         // Party A aggregates its own share
         node_a.aggregator.receive_share(rng, &mut pvss_a).unwrap();   // works
         // Party A gets party B's share through communication
-        node_a.aggregator.receive_share(rng, &mut pvss_b).unwrap();   // EdDSAInvalidSignatureError
+        node_a.aggregator.receive_share(rng, &mut pvss_b).unwrap();   // works
 
         // Party B aggregates its own share
-        node_b.aggregator.receive_share(rng, &mut pvss_b).unwrap();
+        node_b.aggregator.receive_share(rng, &mut pvss_b).unwrap();   // works
         // Party B gets party A's share through communication
-        node_b.aggregator.receive_share(rng, &mut pvss_a).unwrap();
+        node_b.aggregator.receive_share(rng, &mut pvss_a).unwrap();   // works
 
         // Party C aggregates its own share
-        node_c.aggregator.receive_share(rng, &mut pvss_c).unwrap();
+        node_c.aggregator.receive_share(rng, &mut pvss_c).unwrap();   // works
         // Party C gets party D's share through communication
-        node_c.aggregator.receive_share(rng, &mut pvss_d).unwrap();
+        node_c.aggregator.receive_share(rng, &mut pvss_d).unwrap();   // works
 
         // Party D aggregates its own share
-        node_d.aggregator.receive_share(rng, &mut pvss_d).unwrap();
+        node_d.aggregator.receive_share(rng, &mut pvss_d).unwrap();   // works
         // Party D gets party C's share through communication
-        node_d.aggregator.receive_share(rng, &mut pvss_c).unwrap();
+        node_d.aggregator.receive_share(rng, &mut pvss_c).unwrap();   // works
 
         // Parties A and B should at this point hold the same aggregated transcript
         assert_eq!(node_a.aggregator.aggregated_tx, node_b.aggregator.aggregated_tx);
@@ -417,8 +428,10 @@ mod test {
         // Aggregated share of the right subcommittee
         let agg_share_cd = node_c.aggregator.aggregated_tx.clone();
 
+        println!("LEVEL 2:\n");
+
         // Right subcommittee receives the left subcommittee's aggregated share
-        node_c.aggregator.receive_aggregated_share(rng, &agg_share_ab).unwrap();
+        node_c.aggregator.receive_aggregated_share(rng, &agg_share_ab).unwrap();   // EdDSAInvalidSignatureBatchError
         node_d.aggregator.receive_aggregated_share(rng, &agg_share_ab).unwrap();
 
         // Left subcommittee receives the right subcommittee's aggregated share
