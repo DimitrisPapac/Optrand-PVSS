@@ -81,18 +81,18 @@ where
 	let poly = Poly::<E>::rand(t, rng);
 
 	// Evaluate poly(j) for all j in {1, ..., n}
-	let evals = (1..n+1)
+	let evals = (1..=n)
 	        .map(|j| poly.evaluate(&Scalar::<E>::from(j as u64)))
 	        .collect::<Vec<_>>();
 
 	// Compute commitments for all nodes in {0, ..., n-1}
         // Recall that G2 is the commitment group.
-	let comms = (0..n)
+	let comms = (0..=(n-1))
 	        .map(|j| self.aggregator.config.srs.g2.mul(evals[j].into_repr()))
 	        .collect::<Vec<_>>();
 
 	// Compute encryptions for all nodes in {0, ..., n-1}
-	let encs = (0..n)
+	let encs = (0..=(n-1))
 	        .map::<Result<E::G1Projective, PVSSError<E>>, _>(|j| {
                     Ok(self
                         .aggregator
