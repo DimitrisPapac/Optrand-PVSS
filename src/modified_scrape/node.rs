@@ -18,9 +18,9 @@ use crate::{
 use ark_ec::{AffineCurve, PairingEngine, ProjectiveCurve};
 use ark_ff::PrimeField;
 use ark_poly::{Polynomial, UVPolynomial};
+use ark_std::collections::BTreeMap;
 
 use rand::Rng;
-use std::collections::BTreeMap;
 
 
 /* Struct Node models the individual nodes participating in the PVSS sharing
@@ -178,7 +178,7 @@ mod test {
             participant::Participant,
 	    share::PVSSAggregatedShare,
 	    srs::SRS,
-	    node::Node,
+	    node::{Node, self},
         },
 	signature::{
 	    schnorr::{SchnorrSignature, srs::SRS as SCHSRS},
@@ -191,6 +191,7 @@ mod test {
 	Bls12_381,                         // type Bls12_381 = Bls12<Parameters> (Bls12 implements PairingEngine)
     };
     use ark_ec::PairingEngine;
+    use ark_std::collections::BTreeMap;
     use rand::thread_rng;
 
     use std::marker::PhantomData;
@@ -199,15 +200,15 @@ mod test {
     fn test_one() {
         let rng = &mut thread_rng();
         let srs = SRS::<Bls12_381>::setup(rng).unwrap();
-	let schnorr_srs = SCHSRS::<<Bls12_381 as PairingEngine>::G1Affine>::setup(rng).unwrap();
+        let schnorr_srs = SCHSRS::<<Bls12_381 as PairingEngine>::G1Affine>::setup(rng).unwrap();
         let schnorr_sig = SchnorrSignature { srs: schnorr_srs };
 
-	// generate key pairs
+        // generate key pairs
         let dealer_keypair_sig = schnorr_sig.generate_keypair(rng).unwrap();   // (sk, pk)
-	let eddsa_keypair = generate_production_keypair();                     // (pk, sk)
+        let eddsa_keypair = generate_production_keypair();                     // (pk, sk)
 
-	// create the dealer instance
-	let dealer: Dealer<Bls12_381,   //Bls12<ark_bls12_381::Parameters>,
+        // create the dealer instance
+        let dealer: Dealer<Bls12_381,   //Bls12<ark_bls12_381::Parameters>,
 			   SchnorrSignature<<Bls12_381 as PairingEngine>::G1Affine>> = Dealer {
             private_key_sig: dealer_keypair_sig.0,
     	    private_key_ed: eddsa_keypair.1,
@@ -219,19 +220,19 @@ mod test {
             },
         };
 
-	// set global configuration parameters
-	let config = Config {
+        // set global configuration parameters
+        let config = Config {
             srs: srs.clone(),
             degree: 1,
 	    num_participants: 1,
         };
 
         let participants = vec![dealer.participant.clone()];
-	let num_participants = participants.len();
+        let num_participants = participants.len();
         let degree = config.degree;
 
-	// create the aggregator instance
-	let aggregator: PVSSAggregator<Bls12_381,
+        // create the aggregator instance
+        let aggregator: PVSSAggregator<Bls12_381,
 			   SchnorrSignature<<Bls12_381 as PairingEngine>::G1Affine>> = PVSSAggregator {
                 config: config.clone(),
                 scheme_sig: schnorr_sig.clone(),
@@ -239,13 +240,212 @@ mod test {
                 aggregated_tx: PVSSAggregatedShare::empty(degree, num_participants),
         };
         
-	// create the node instance
+        // create the node instance
         let mut node = Node {
             aggregator,
             dealer,
         };
 
-	// invoke share to create a PVSS share
+        // invoke share to create a PVSS share
         node.share(rng).unwrap();
+    }
+
+    #[test]
+    fn test_aggregation_with_4_nodes() {
+        let rng = &mut thread_rng();
+
+        // Global settings
+        let srs = SRS::<Bls12_381>::setup(rng).unwrap();
+        let schnorr_srs = SCHSRS::<<Bls12_381 as PairingEngine>::G1Affine>::setup(rng).unwrap();
+        let schnorr_sig = SchnorrSignature { srs: schnorr_srs };
+
+        // Set global configuration parameters
+        let config = Config {
+            srs: srs.clone(),
+            degree: 2,
+            num_participants: 4,
+        };
+
+        // Generate key pairs for party A
+        let dealer_keypair_sig_a = schnorr_sig.generate_keypair(rng).unwrap();   // (sk, pk)
+        let eddsa_keypair_a = generate_production_keypair();                     // (pk, sk)
+
+        // Create the dealer instance for party A
+        let dealer_a: Dealer<Bls12_381,   //Bls12<ark_bls12_381::Parameters>,
+			   SchnorrSignature<<Bls12_381 as PairingEngine>::G1Affine>> = Dealer {
+            private_key_sig: dealer_keypair_sig_a.0,
+    	    private_key_ed: eddsa_keypair_a.1,
+            participant: Participant {
+                pairing_type: PhantomData,
+                id: 0,
+                public_key_sig: dealer_keypair_sig_a.1,
+                public_key_ed: eddsa_keypair_a.0,
+            },
+        };
+
+        // Generate key pairs for party B
+        let dealer_keypair_sig_b = schnorr_sig.generate_keypair(rng).unwrap();   // (sk, pk)
+        let eddsa_keypair_b = generate_production_keypair();                     // (pk, sk)
+
+        // Create the dealer instance for party B
+        let dealer_b: Dealer<Bls12_381,   //Bls12<ark_bls12_381::Parameters>,
+			   SchnorrSignature<<Bls12_381 as PairingEngine>::G1Affine>> = Dealer {
+            private_key_sig: dealer_keypair_sig_b.0,
+    	    private_key_ed: eddsa_keypair_b.1,
+            participant: Participant {
+                pairing_type: PhantomData,
+                id: 0,
+                public_key_sig: dealer_keypair_sig_b.1,
+                public_key_ed: eddsa_keypair_b.0,
+            },
+        };
+
+        // Generate key pairs for party C
+        let dealer_keypair_sig_c = schnorr_sig.generate_keypair(rng).unwrap();   // (sk, pk)
+        let eddsa_keypair_c = generate_production_keypair();                     // (pk, sk)
+
+        // Create the dealer instance for party C
+        let dealer_c: Dealer<Bls12_381,   //Bls12<ark_bls12_381::Parameters>,
+			   SchnorrSignature<<Bls12_381 as PairingEngine>::G1Affine>> = Dealer {
+            private_key_sig: dealer_keypair_sig_c.0,
+    	    private_key_ed: eddsa_keypair_c.1,
+            participant: Participant {
+                pairing_type: PhantomData,
+                id: 0,
+                public_key_sig: dealer_keypair_sig_c.1,
+                public_key_ed: eddsa_keypair_c.0,
+            },
+        };
+
+        // Generate key pairs for party C
+        let dealer_keypair_sig_c = schnorr_sig.generate_keypair(rng).unwrap();   // (sk, pk)
+        let eddsa_keypair_c = generate_production_keypair();                     // (pk, sk)
+
+        // Create the dealer instance for party C
+        let dealer_c: Dealer<Bls12_381,   //Bls12<ark_bls12_381::Parameters>,
+			   SchnorrSignature<<Bls12_381 as PairingEngine>::G1Affine>> = Dealer {
+            private_key_sig: dealer_keypair_sig_c.0,
+    	    private_key_ed: eddsa_keypair_c.1,
+            participant: Participant {
+                pairing_type: PhantomData,
+                id: 0,
+                public_key_sig: dealer_keypair_sig_c.1,
+                public_key_ed: eddsa_keypair_c.0,
+            },
+        };
+
+        // Generate key pairs for party D
+        let dealer_keypair_sig_d = schnorr_sig.generate_keypair(rng).unwrap();   // (sk, pk)
+        let eddsa_keypair_d = generate_production_keypair();                     // (pk, sk)
+
+        // Create the dealer instance for party D
+        let dealer_d: Dealer<Bls12_381,   //Bls12<ark_bls12_381::Parameters>,
+			   SchnorrSignature<<Bls12_381 as PairingEngine>::G1Affine>> = Dealer {
+            private_key_sig: dealer_keypair_sig_d.0,
+    	    private_key_ed: eddsa_keypair_d.1,
+            participant: Participant {
+                pairing_type: PhantomData,
+                id: 0,
+                public_key_sig: dealer_keypair_sig_d.1,
+                public_key_ed: eddsa_keypair_d.0,
+            },
+        };
+
+
+        let participants_vec = vec![
+            dealer_a.participant.clone(),
+            dealer_b.participant.clone(),
+            dealer_c.participant.clone(),
+            dealer_d.participant.clone()
+        ];
+        let num_participants = participants_vec.len();
+        let degree = config.degree;
+
+        let mut participants = BTreeMap::new();
+        for (id, party) in (0..num_participants).zip(participants_vec) {
+            participants.insert(id, party);
+        }
+        
+        // Create the node instance for party A
+        let mut node_a = Node::new(
+            config.clone(),
+            schnorr_sig.clone(),
+            dealer_a,
+            participants.clone(),
+        ).unwrap();
+        
+        // Create the node instance for party B
+        let mut node_b = Node::new(
+            config.clone(),
+            schnorr_sig.clone(),
+            dealer_b,
+            participants.clone(),
+        ).unwrap();
+        
+        // Create the node instance for party C
+        let mut node_c = Node::new(
+            config.clone(),
+            schnorr_sig.clone(),
+            dealer_c,
+            participants.clone(),
+        ).unwrap();
+        
+        // Create the node instance for party D
+        let mut node_d = Node::new(
+            config.clone(),
+            schnorr_sig.clone(),
+            dealer_d,
+            participants.clone(),
+        ).unwrap();
+
+        // Nodes generate their PVSSShares:
+        let mut pvss_a = node_a.share(rng).unwrap();
+        let mut pvss_b = node_b.share(rng).unwrap();
+        let mut pvss_c = node_c.share(rng).unwrap();
+        let mut pvss_d = node_d.share(rng).unwrap();
+
+        // Party A aggregates its own share
+        node_a.aggregator.receive_share(rng, &mut pvss_a);
+        // Party A gets party B's share through communication
+        node_a.aggregator.receive_share(rng, &mut pvss_b);
+
+        // Party B aggregates its own share
+        node_b.aggregator.receive_share(rng, &mut pvss_b);
+        // Party B gets party A's share through communication
+        node_b.aggregator.receive_share(rng, &mut pvss_a);
+
+        // Party C aggregates its own share
+        node_c.aggregator.receive_share(rng, &mut pvss_c);
+        // Party C gets party D's share through communication
+        node_c.aggregator.receive_share(rng, &mut pvss_d);
+
+        // Party D aggregates its own share
+        node_d.aggregator.receive_share(rng, &mut pvss_d);
+        // Party D gets party C's share through communication
+        node_d.aggregator.receive_share(rng, &mut pvss_c);
+
+        // Parties A and B should at this point hold the same aggregated transcript
+        assert_eq!(node_a.aggregator.aggregated_tx, node_b.aggregator.aggregated_tx);
+
+        // Parties C and D should at this point hold the same aggregated transcript
+        assert_eq!(node_c.aggregator.aggregated_tx, node_d.aggregator.aggregated_tx);
+
+        // Aggregated share of the left subcommittee
+        let agg_share_ab = node_a.aggregator.aggregated_tx.clone();
+        // Aggregated share of the right subcommittee
+        let agg_share_cd = node_c.aggregator.aggregated_tx.clone();
+
+        // Right subcommittee receives the left subcommittee's aggregated share
+        node_c.aggregator.receive_aggregated_share(rng, &agg_share_ab);
+        node_d.aggregator.receive_aggregated_share(rng, &agg_share_ab);
+
+        // Left subcommittee receives the right subcommittee's aggregated share
+        node_a.aggregator.receive_aggregated_share(rng, &agg_share_cd);
+        node_b.aggregator.receive_aggregated_share(rng, &agg_share_cd);
+
+        // All nodes should now hold the exact same aggregated transcript
+        assert_eq!(node_a.aggregator.aggregated_tx, node_b.aggregator.aggregated_tx);
+        assert_eq!(node_b.aggregator.aggregated_tx, node_c.aggregator.aggregated_tx);
+        assert_eq!(node_c.aggregator.aggregated_tx, node_d.aggregator.aggregated_tx);
     }
 }
