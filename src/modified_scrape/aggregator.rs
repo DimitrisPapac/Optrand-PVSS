@@ -218,9 +218,8 @@ where
 	let digest = Digest(arr);
 	let votes: Zip<Iter<'_, PublicKey>, Iter<'_, Signature>> = pks.iter().zip(sigs.iter());
 	
-	let res = Signature::verify_batch(&digest, votes);
-	if res.is_err() {
-		println!("EdDSA error occurred:\n{:?}", res.unwrap());
+	// ERROR OCCURS IN THE FOLLOWING CALL TO THE DALEK LIBRARY.
+	if Signature::verify_batch(&digest, votes).is_err() {
 		return Err(PVSSError::EdDSAInvalidSignatureBatchError);
 	}
 
