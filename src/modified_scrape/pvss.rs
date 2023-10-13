@@ -28,7 +28,6 @@ where
         }
     }
 
-
     // Aggregation of two PVSSCore instances.
     pub fn aggregate(&self, other: &Self) -> Result<Self, PVSSError<E>> {
         // Perform some basic checks:
