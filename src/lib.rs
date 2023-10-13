@@ -191,6 +191,12 @@ impl Drop for SecretKey {
     }
 }
 
+impl fmt::Debug for SecretKey {
+    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        write!(f, "{}", self.to_base64())
+    }
+}
+
 impl CanonicalSerialize for SecretKey {
     #[inline]
     fn serialize<W: Write>(
