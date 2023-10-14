@@ -52,11 +52,13 @@ where
     //<E as PairingEngine>::G2Affine: AddAssign,
     SSIG: BatchVerifiableSignatureScheme<PublicKey = E::G1Affine, Secret = E::Fr>,
 {
+    // TODO: create a "new" method
+
     // Utility method for verifying individual "core" PVSS shares.
     pub fn core_verify<R: Rng>(
         &self,
         rng: &mut R,
-	decomp_proof: &DecompProof<E>,   // need to pass on separately since cores do not have decomps attached
+        decomp_proof: &DecompProof<E>,   // need to pass on separately since cores do not have decomps attached
         core: &PVSSCore<E>,
     ) -> Result<(), PVSSError<E>> {
 
@@ -80,7 +82,7 @@ where
         // Check decomposition proof.
 	let point = lagrange_interpolation_simple::<E>(&core.comms, self.config.degree as u64).unwrap();   // E::G2Projective
 
-	if point.into_affine() != decomp_proof.gs {
+	if point != decomp_proof.gs {
 	        return Err(PVSSError::GSCheckError);
 	}
 
@@ -111,8 +113,8 @@ where
 
         // Verify correctness of encryption: e(pk_i, v_i) = e(enc_i, g_2).
         let pairs = [
-            (participant.public_key_sig.into(), share.pvss_core.comms[participant_id].into_affine().into()),
-            (share.pvss_core.encs[participant_id].neg().into_affine().into(), self.config.srs.g2.into()),
+            (participant.public_key_sig.into(), share.pvss_core.comms[participant_id].into()),
+            (share.pvss_core.encs[participant_id].neg().into(), self.config.srs.g2.into()),
         ];
 
         if !E::product_of_pairings(pairs.iter()).is_one() {
@@ -127,8 +129,6 @@ where
 
         println!("Now verifying NIZK proof from party {}", participant_id);
         println!("\n");
-        //println!("The NIZK proof is:\n{:?}", share.signed_proof.decomp_proof);
-        //println!("\n");
         println!("NIZK proof's digest is:\n{:?}", digest);
         println!("\n");
         println!("Will use verification key:\n{:?}", participant.public_key_ed);
@@ -151,13 +151,13 @@ where
     ) -> Result<(), PVSSError<E>> {
 
         // Check that the sizes of commitments and encryptions are correct.
-	if agg_share.pvss_core.encs.len() != self.config.num_participants ||
+        if agg_share.pvss_core.encs.len() != self.config.num_participants ||
            agg_share.pvss_core.comms.len() != self.config.num_participants {
 	        return Err(PVSSError::MismatchedCommitsEncryptionsParticipantsError(
 			    agg_share.pvss_core.encs.len(),
 			    agg_share.pvss_core.comms.len(),
                             self.config.num_participants));
-	}
+        }
 
     // if agg_share.contributions.len() < self.config.degree {}
 
@@ -171,8 +171,8 @@ where
 
 	let correct_encryptions = (0..self.config.num_participants)
 	        .all(|i| { let pairs = [
-            	    (self.participants.get(&i).unwrap().public_key_sig.into(), agg_share.pvss_core.comms[i].into_affine().into()),
-            	    (agg_share.pvss_core.encs[i].neg().into_affine().into(), self.config.srs.g2.into()),
+            	    (self.participants.get(&i).unwrap().public_key_sig.into(), agg_share.pvss_core.comms[i].into()),
+            	    (agg_share.pvss_core.encs[i].neg().into(), self.config.srs.g2.into()),
         	];
 
 		E::product_of_pairings(pairs.iter()).is_one()
@@ -200,11 +200,11 @@ where
             gs_total.add_assign_mixed(&contribution.decomp_proof.gs);
 	}
 
-	if gs_total != point {   // if gs_total != point.into_affine()
+	if gs_total.into_affine() != point {   // if gs_total != point.into_affine()
 	    return Err(PVSSError::AggregationReconstructionMismatchError);
 	}
 
-	// Batch-verification of contributed signatures:
+	// Batch-verification of contributed signatures in the share:
 	let mut dproofs = Vec::new();
 	let mut pks: Vec<PublicKey> = Vec::new();
 	let mut sigs: Vec<Signature> = Vec::new();
