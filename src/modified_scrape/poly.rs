@@ -3,7 +3,7 @@ use crate::{
     Scalar,
 };
 
-use ark_ec::{PairingEngine, ProjectiveCurve};
+use ark_ec::{AffineCurve, PairingEngine, ProjectiveCurve};
 use ark_ff::{Field, Zero, One, PrimeField};
 use ark_poly::{UVPolynomial, Polynomial as Poly, polynomial::univariate::DensePolynomial};
 //use ark_std::ops::AddAssign;
@@ -18,7 +18,7 @@ pub type Polynomial<E> = DensePolynomial<Scalar<E>>;
 // Function for ensuring that the commitment vector evals is
 // also a commitment to a polynomial of specified degree.
 pub fn ensure_degree<E, R>(rng: &mut R,
-                           evaluations: &Vec<E::G2Projective>,   // G2 is the group of commitments
+                           evaluations: &Vec<E::G2Affine>,   // G2 is the group of commitments
                            degree: u64) -> Result<(), PVSSError<E>>
 where
 	E: PairingEngine,
@@ -49,7 +49,7 @@ where
         v.add_assign_mixed(&evaluations[(i-1) as usize].mul(cperp.into_repr()).into_affine());
     }
 
-    if v.into_affine() != E::G2Affine::zero() {
+    if v != E::G2Projective::zero() {
 	    return Err(PVSSError::DualCodeError);
     }
 
@@ -58,8 +58,8 @@ where
 
 
 // Utility function for Lagrange interpolation from a given list of evaluations.
-pub fn lagrange_interpolation_simple<E>(evals: &Vec<E::G2Projective>,
-					degree: u64) -> Result<E::G2Projective, PVSSError<E>> 
+pub fn lagrange_interpolation_simple<E>(evals: &Vec<E::G2Affine>,
+					degree: u64) -> Result<E::G2Affine, PVSSError<E>> 
 where
 	E: PairingEngine,
 	Scalar<E>: From<u64>,
@@ -85,15 +85,15 @@ where
         sum += evals[j as usize].mul(prod.into_repr());
     }
 
-    Ok(sum)
+    Ok(sum.into_affine())
 }
 
 
 // Utility function for Lagrange interpolation from a given list of points
 // and evaluations.
-pub fn lagrange_interpolation<E>(evals: &Vec<E::G2Projective>,
+pub fn lagrange_interpolation<E>(evals: &Vec<E::G2Affine>,
 				 points: &Vec<Scalar<E>>,
-				 degree: u64) -> Result<E::G2Projective, PVSSError<E>> 
+				 degree: u64) -> Result<E::G2Affine, PVSSError<E>> 
 where
 	E: PairingEngine,
 	Scalar<E>: From<u64>
@@ -122,7 +122,7 @@ where
         sum += evals[j as usize].mul(prod.into_repr());
     }
 
-    Ok(sum)
+    Ok(sum.into_affine())
 }
 
 
@@ -140,7 +140,7 @@ mod test {
     };
 
     use ark_bls12_381::Bls12_381 as E;   // implements PairingEngine
-    use ark_ec::{PairingEngine, AffineCurve};
+    use ark_ec::{PairingEngine, AffineCurve, ProjectiveCurve};
     use ark_ff::PrimeField;
     use ark_poly::{UVPolynomial, Polynomial as Poly};
     use ark_std::UniformRand;
@@ -180,7 +180,7 @@ mod test {
         let deg = rng.gen_range(MIN_DEGREE, MAX_DEGREE) as u64;
 
         // we use random group elemements from G_2 since it doesn't matter here.
-        let evals = vec![<E as PairingEngine>::G2Projective::rand(rng); (deg+4) as usize];
+        let evals = vec![<E as PairingEngine>::G2Projective::rand(rng).into_affine(); (deg+4) as usize];
         assert_eq!(ensure_degree::<E, _>(rng, &evals, deg).unwrap(), ());
     }
 
@@ -192,7 +192,7 @@ mod test {
         let deg = rng.gen_range(MIN_DEGREE, MAX_DEGREE) as u64;
 
         // we use random group elemements from G_2 since it doesn't matter here.
-        let evals = vec![<E as PairingEngine>::G2Projective::rand(rng); (deg-1) as usize];
+        let evals = vec![<E as PairingEngine>::G2Projective::rand(rng).into_affine(); (deg-1) as usize];
         ensure_degree::<E, _>(rng, &evals, deg).unwrap();
     }
 
@@ -204,7 +204,7 @@ mod test {
         let deg = rng.gen_range(MIN_DEGREE, MAX_DEGREE) as u64;
 
         // we use random group elemements from G_2 since it doesn't matter here.
-        let evals = vec![<E as PairingEngine>::G2Projective::rand(rng); (deg-1) as usize];
+        let evals = vec![<E as PairingEngine>::G2Projective::rand(rng).into_affine(); (deg-1) as usize];
 
         _ = lagrange_interpolation_simple::<E>(&evals, deg).unwrap();
     }
@@ -223,7 +223,7 @@ mod test {
 	let shared_secret = generator.mul(secret.into_repr());
 
 	let evals = (1..(deg+2))
-		.map(|x| generator.mul(p.evaluate(&Scalar::<E>::from(x as u64)).into_repr()))
+		.map(|x| generator.mul(p.evaluate(&Scalar::<E>::from(x as u64)).into_repr()).into_affine())
 		.collect::<Vec<_>>();
 
 	let reconstructed_secret = lagrange_interpolation_simple::<E>(&evals, deg).unwrap();   // G2Projective
@@ -239,7 +239,7 @@ mod test {
         let deg = rng.gen_range(MIN_DEGREE, MAX_DEGREE) as u64;
 
 	// we use random elements since it doesn't matter here
-        let evals = vec![<E as PairingEngine>::G2Projective::rand(rng); (deg-1) as usize];
+        let evals = vec![<E as PairingEngine>::G2Projective::rand(rng).into_affine(); (deg-1) as usize];
 	let points = vec![Scalar::<E>::rand(rng); (deg-1) as usize];
 
 	_ = lagrange_interpolation::<E>(&evals, &points, deg).unwrap();
@@ -253,7 +253,7 @@ mod test {
         let deg = rng.gen_range(MIN_DEGREE, MAX_DEGREE) as u64;
 
 	// we use random elements since it doesn't matter here
-        let evals = vec![<E as PairingEngine>::G2Projective::rand(rng); (deg+1) as usize];
+        let evals = vec![<E as PairingEngine>::G2Projective::rand(rng).into_affine(); (deg+1) as usize];
 	let points = vec![Scalar::<E>::rand(rng); (deg+2) as usize];
 
 	_ = lagrange_interpolation::<E>(&evals, &points, deg).unwrap();
@@ -276,7 +276,7 @@ mod test {
 		.map(|j| Scalar::<E>::from(j as u64))
 		.collect::<Vec<_>>();
 	let evals = (1..(deg+2))
-		.map(|j| generator.mul(p.evaluate(&points[(j-1) as usize]).into_repr()))
+		.map(|j| generator.mul(p.evaluate(&points[(j-1) as usize]).into_repr()).into_affine())
 		.collect::<Vec<_>>();
 
 	let reconstructed_secret = lagrange_interpolation::<E>(&evals, &points, deg).unwrap();
