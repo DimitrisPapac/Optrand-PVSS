@@ -28,7 +28,7 @@ where
 }
 
 impl<E: PairingEngine> SignedProof<E> {
-    // Method enabling verification of signed proofs.
+    // Method enabling verification of individual signed proofs instances (FOR TESTING ONLY).
     fn verify(&mut self, conf: &Config<E>, pk_sig: &PublicKey) -> Result<(), PVSSError<E>> {
         // Verify the NIZK proof
         self.decomp_proof.verify(&conf).unwrap();
@@ -84,10 +84,10 @@ impl<E: PairingEngine> PVSSAggregatedShare<E>
     // Function for generating a new (empty) PVSSAggregatedShare instance.
     pub fn empty(degree: usize, num_participants: usize) -> Self {
         Self {
-	    num_participants,
-	    degree,
-	    pvss_core: PVSSCore::empty(num_participants),
-	    contributions: BTreeMap::new(),
+	        num_participants,
+	        degree,
+	        pvss_core: PVSSCore::empty(num_participants),
+	        contributions: BTreeMap::new(),
         }
     }
 
@@ -240,8 +240,8 @@ mod test {
             num_participants: n,
             degree: t,
             pvss_core: PVSSCore {
-                encs:  vec![<E as PairingEngine>::G1Projective::zero(); n],
-                comms: vec![<E as PairingEngine>::G2Projective::zero(); n],
+                encs:  vec![<E as PairingEngine>::G1Affine::zero(); n],
+                comms: vec![<E as PairingEngine>::G2Affine::zero(); n],
             },
             contributions: BTreeMap::new(),
         };
@@ -292,7 +292,7 @@ mod test {
         // Compute commitments for all nodes in {0, ..., n-1}.
         // Recall that G2 is the commitment group.
         let comms = (0..=(n-1))
-	        .map(|j| conf.srs.g2.mul(evals[j].into_repr()))
+	        .map(|j| conf.srs.g2.mul(evals[j].into_repr()).into_affine())
 	        .collect::<Vec<_>>();
 
         // Dummy vector of random Schnorr public keys.
@@ -304,8 +304,9 @@ mod test {
         let encs: Vec<_> = (0..=(n-1))
 	        .map(|j| {
                 schnorr_pks[j]
-                    .into_affine()
+                    //.into_affine()
                     .mul(evals[j].into_repr())
+                    .into_affine()
                     })
             .collect::<_>();
 
@@ -363,20 +364,21 @@ mod test {
         // Compute commitments for all nodes in {0, ..., n-1}.
         // Recall that G2 is the commitment group.
         let comms = (0..=(n-1))
-	        .map(|j| conf.srs.g2.mul(evals[j].into_repr()))
+	        .map(|j| conf.srs.g2.mul(evals[j].into_repr()).into_affine())
 	        .collect::<Vec<_>>();
 
         // Dummy vector of Schnorr public keys.
-        let mut schnorr_pks = vec![<E as PairingEngine>::G1Projective::rand(rng); n];
+        let mut schnorr_pks = vec![<E as PairingEngine>::G1Projective::rand(rng).into_affine(); n];
         // We only care about party "id"'s pk being genuine.
-        schnorr_pks[id] = schnorr_pk.into_projective();
+        schnorr_pks[id] = schnorr_pk;
 
         // Compute encryptions for all nodes in {0, ..., n-1}.
         let encs: Vec<_> = (0..=(n-1))
 	        .map(|j| {
                 schnorr_pks[j]
-                    .into_affine()
+                    //.into_affine()
                     .mul(evals[j].into_repr())
+                    .into_affine()
                     })
             .collect::<_>();
 
@@ -480,27 +482,28 @@ mod test {
         // Compute party A's commitments for all nodes in {0, ..., n-1}.
         // Recall that G2 is the commitment group.
         let comms_a = (0..=(n-1))
-	        .map(|j| conf.srs.g2.mul(evals_a[j].into_repr()))
+	        .map(|j| conf.srs.g2.mul(evals_a[j].into_repr()).into_affine())
 	        .collect::<Vec<_>>();
 
         // Compute party B's commitments for all nodes in {0, ..., n-1}.
         // Recall that G2 is the commitment group.
         let comms_b = (0..=(n-1))
-	        .map(|j| conf.srs.g2.mul(evals_b[j].into_repr()))
+	        .map(|j| conf.srs.g2.mul(evals_b[j].into_repr()).into_affine())
 	        .collect::<Vec<_>>();
 
         // Dummy vector of Schnorr public keys.
-        let mut schnorr_pks = vec![<E as PairingEngine>::G1Projective::rand(rng); n];
+        let mut schnorr_pks = vec![<E as PairingEngine>::G1Projective::rand(rng).into_affine(); n];
         // We only care about party A and B's public keys being genuine.
-        schnorr_pks[id_a] = schnorr_pk_a.into_projective();
-        schnorr_pks[id_b] = schnorr_pk_b.into_projective();
+        schnorr_pks[id_a] = schnorr_pk_a;
+        schnorr_pks[id_b] = schnorr_pk_b;
 
         // Compute party A's encryptions for all nodes in {0, ..., n-1}.
         let encs_a: Vec<_> = (0..=(n-1))
 	        .map(|j| {
                     schnorr_pks[j]
-                        .into_affine()
+                        //.into_affine()
                         .mul(evals_a[j].into_repr())
+                        .into_affine()
                     })
                 .collect::<_>();
 
@@ -508,8 +511,9 @@ mod test {
         let encs_b: Vec<_> = (0..=(n-1))
 	        .map(|j| {
                 schnorr_pks[j]
-                    .into_affine()
+                    //.into_affine()
                     .mul(evals_b[j].into_repr())
+                    .into_affine()
                     })
             .collect::<_>();
 
@@ -607,20 +611,21 @@ mod test {
         // Compute commitments for all nodes in {0, ..., n-1}.
         // Recall that G2 is the commitment group.
         let comms = (0..=(n-1))
-	        .map(|j| conf.srs.g2.mul(evals[j].into_repr()))
+	        .map(|j| conf.srs.g2.mul(evals[j].into_repr()).into_affine())
 	        .collect::<Vec<_>>();
 
         // Dummy vector of random Schnorr public keys.
-        let mut schnorr_pks = vec![<E as PairingEngine>::G1Projective::rand(rng); n];
+        let mut schnorr_pks = vec![<E as PairingEngine>::G1Projective::rand(rng).into_affine(); n];
         // For this test case, we only care about party "id"'s pk being genuine.
-        schnorr_pks[id] = schnorr_pk.into_projective();
+        schnorr_pks[id] = schnorr_pk;
 
         // Compute encryptions for all nodes in {0, ..., n-1}.
         let encs: Vec<_> = (0..=(n-1))
 	        .map(|j| {
                 schnorr_pks[j]
-                    .into_affine()
+                    //.into_affine()
                     .mul(evals[j].into_repr())
+                    .into_affine()
                     })
             .collect::<_>();
 
@@ -707,27 +712,28 @@ mod test {
         // Compute party A's commitments for all nodes in {0, ..., n-1}.
         // Recall that G2 is the commitment group.
         let comms_a = (0..=(n-1))
-	        .map(|j| conf.srs.g2.mul(evals_a[j].into_repr()))
+	        .map(|j| conf.srs.g2.mul(evals_a[j].into_repr()).into_affine())
 	        .collect::<Vec<_>>();
 
         // Compute party B's commitments for all nodes in {0, ..., n-1}.
         // Recall that G2 is the commitment group.
         let comms_b = (0..=(n-1))
-	        .map(|j| conf.srs.g2.mul(evals_b[j].into_repr()))
+	        .map(|j| conf.srs.g2.mul(evals_b[j].into_repr()).into_affine())
 	        .collect::<Vec<_>>();
 
         // Dummy vector of Schnorr public keys.
-        let mut schnorr_pks = vec![<E as PairingEngine>::G1Projective::rand(rng); n];
+        let mut schnorr_pks = vec![<E as PairingEngine>::G1Projective::rand(rng).into_affine(); n];
         // We only care about party A and B's public keys being genuine.
-        schnorr_pks[id_a] = schnorr_pk_a.into_projective();
-        schnorr_pks[id_b] = schnorr_pk_b.into_projective();
+        schnorr_pks[id_a] = schnorr_pk_a;
+        schnorr_pks[id_b] = schnorr_pk_b;
 
         // Compute party A's encryptions for all nodes in {0, ..., n-1}.
         let encs_a: Vec<_> = (0..=(n-1))
 	        .map(|j| {
                     schnorr_pks[j]
-                        .into_affine()
+                        //.into_affine()
                         .mul(evals_a[j].into_repr())
+                        .into_affine()
                     })
                 .collect::<_>();
 
@@ -735,8 +741,9 @@ mod test {
         let encs_b: Vec<_> = (0..=(n-1))
 	        .map(|j| {
                 schnorr_pks[j]
-                    .into_affine()
+                    //.into_affine()
                     .mul(evals_b[j].into_repr())
+                    .into_affine()
                     })
             .collect::<_>();
 
