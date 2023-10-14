@@ -9,16 +9,16 @@ use ark_ff::{Field, PrimeField};
 // of decryptions.
 #[derive(Clone)]
 pub struct DecryptedShare<E: PairingEngine> {
-    dec: E::G1Affine,   // the decrypted share
-    origin: usize,      // index in the pk_map
+    pub dec: E::G1Affine,   // the decrypted share
+    pub origin: usize,      // index in the pk_map
 }
 
 impl<E: PairingEngine> DecryptedShare<E> {
 
     // Associated function for generating a decrypted share from a given encrypted share.
-    fn generate(enc: &E::G1Affine, sk: &Scalar<E>, my_id: usize) -> DecryptedShare<E> {
-	// dec := enc * sk^{-1}
-	let dec = enc.mul(sk.inverse().unwrap().into_repr()).into_affine();
+    pub fn generate(enc: &E::G1Affine, sk: &Scalar<E>, my_id: usize) -> DecryptedShare<E> {
+        // dec := enc * sk^{-1}
+        let dec = enc.mul(sk.inverse().unwrap().into_repr()).into_affine();
 
     	DecryptedShare {dec, origin: my_id}
     }
