@@ -91,7 +91,44 @@ where
 
 // Utility function for Lagrange interpolation from a given list of points
 // and evaluations.
-pub fn lagrange_interpolation<E>(evals: &Vec<E::G2Affine>,
+pub fn lagrange_interpolation_g1<E>(evals: &Vec<E::G1Affine>,
+				 points: &Vec<Scalar<E>>,
+				 degree: u64) -> Result<E::G1Affine, PVSSError<E>> 
+where
+	E: PairingEngine,
+	Scalar<E>: From<u64>
+{
+    if evals.len() < (degree + 1) as usize {
+        return Err(PVSSError::InsufficientEvaluationsError);
+    }
+
+    if evals.len() != points.len() {
+	    return Err(PVSSError::DifferentPointsEvalsError);
+    }
+
+    let mut sum = E::G1Projective::zero();
+
+    for j in 0..=degree {
+        let x_j = points[j as usize];
+        let mut prod = Scalar::<E>::one();
+        for k in 0..=degree {
+            if j != k {
+                let x_k = points[k as usize];
+                prod *= x_k * (x_k - x_j).inverse().unwrap();
+            }
+        }
+
+        // Recovery formula
+        sum += evals[j as usize].mul(prod.into_repr());
+    }
+
+    Ok(sum.into_affine())
+}
+
+
+// Utility function for Lagrange interpolation from a given list of points
+// and evaluations.
+pub fn lagrange_interpolation_g2<E>(evals: &Vec<E::G2Affine>,
 				 points: &Vec<Scalar<E>>,
 				 degree: u64) -> Result<E::G2Affine, PVSSError<E>> 
 where
@@ -133,7 +170,7 @@ where
 mod test {
     use crate::{
         modified_scrape::{
-            poly::{Polynomial, ensure_degree, lagrange_interpolation_simple, lagrange_interpolation},
+            poly::{Polynomial, ensure_degree, lagrange_interpolation_simple, lagrange_interpolation_g2},
             srs::SRS,
         },
         Scalar,
@@ -242,7 +279,7 @@ mod test {
         let evals = vec![<E as PairingEngine>::G2Projective::rand(rng).into_affine(); (deg-1) as usize];
 	let points = vec![Scalar::<E>::rand(rng); (deg-1) as usize];
 
-	_ = lagrange_interpolation::<E>(&evals, &points, deg).unwrap();
+	_ = lagrange_interpolation_g2::<E>(&evals, &points, deg).unwrap();
     }
 
 
@@ -256,7 +293,7 @@ mod test {
         let evals = vec![<E as PairingEngine>::G2Projective::rand(rng).into_affine(); (deg+1) as usize];
 	let points = vec![Scalar::<E>::rand(rng); (deg+2) as usize];
 
-	_ = lagrange_interpolation::<E>(&evals, &points, deg).unwrap();
+	_ = lagrange_interpolation_g2::<E>(&evals, &points, deg).unwrap();
     }
 
 
@@ -279,7 +316,7 @@ mod test {
 		.map(|j| generator.mul(p.evaluate(&points[(j-1) as usize]).into_repr()).into_affine())
 		.collect::<Vec<_>>();
 
-	let reconstructed_secret = lagrange_interpolation::<E>(&evals, &points, deg).unwrap();
+	let reconstructed_secret = lagrange_interpolation_g2::<E>(&evals, &points, deg).unwrap();
 
 	assert_eq!(reconstructed_secret, shared_secret);
     }
