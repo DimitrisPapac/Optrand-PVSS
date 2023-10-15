@@ -276,7 +276,7 @@ mod test {
     }
 
 
-    // Tests for malformed proofs:
+    // Tests with malformed proofs:
 
 
     #[test]
