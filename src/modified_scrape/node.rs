@@ -6,7 +6,7 @@ use crate::{
         errors::PVSSError,
         participant::Participant,
         pvss::{PVSSCore, PVSSShareSecrets},
-	    share::{PVSSAggregatedShare, PVSSShare, SignedProof},
+	    share::{PVSSShare, SignedProof},
         decomp::Decomp,
         poly::Polynomial as Poly,
     },
@@ -44,7 +44,6 @@ where
     //<E as PairingEngine>::G2Affine: AddAssign,
     SSIG: BatchVerifiableSignatureScheme<PublicKey = E::G1Affine, Secret = E::Fr>,
 {
-
     // Function for initializing a new node in the PVSS sharing protocol.
     pub fn new(
         config: Config<E>,
@@ -52,21 +51,16 @@ where
         dealer: Dealer<E, SSIG>,
         participants: BTreeMap<usize, Participant<E, SSIG>>,
     ) -> Result<Self, PVSSError<E>> {
-        let degree = config.degree;
-        let num_participants = participants.len();
         let node = Node {
-            aggregator: PVSSAggregator {
+            aggregator: PVSSAggregator::<E, SSIG>::new(
                 config,
                 scheme_sig,
-                participants,
-                aggregated_tx: PVSSAggregatedShare::empty(degree, num_participants),
-            },
+                participants).unwrap(),
             dealer,
         };
 
         Ok(node)
     }
-
 
     // Utility method for generating a core of a PVSS share.
     pub fn share_pvss<R: Rng>(
@@ -188,7 +182,7 @@ mod test {
             participant::Participant,
 	    share::PVSSAggregatedShare,
 	    srs::SRS,
-	    node::{Node, self},
+	    node::Node,
         },
 	signature::{
 	    schnorr::{SchnorrSignature, srs::SRS as SCHSRS},
