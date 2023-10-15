@@ -321,7 +321,6 @@ mod test {
     }
 
 
-
     #[test]
     #[should_panic]
     fn test_simple_nizk_malformed_challenge_g1_g1() {
