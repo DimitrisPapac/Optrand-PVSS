@@ -300,13 +300,15 @@ impl CanonicalSerialize for Signature {
     &self,
     mut writer: W,
     ) -> Result<(), SerializationError> {
-	    for item in self.part1.iter() {
+        for item in self.part1.iter() {
             item.serialize(&mut writer)?;
         }
+
         for item in self.part2.iter() {
             item.serialize(&mut writer)?;
         }
-	    Ok(())
+
+        Ok(())
     }
 
     fn serialized_size(&self) -> usize {
