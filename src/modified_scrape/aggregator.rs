@@ -16,19 +16,20 @@ use crate::{
 
 use ark_ec::{PairingEngine, ProjectiveCurve};   // msm::VariableBaseMSM, AffineCurve
 use ark_ff::{One, Zero};
-use ark_std::{
-    collections::BTreeMap,
-    //ops::AddAssign,
-};
+use ark_serialize::CanonicalSerialize;
+use ark_std::collections::BTreeMap;
 
 use rand::Rng;
 use std::{
-    collections::hash_map::DefaultHasher,
-    hash::{Hash, Hasher},
+    //collections::hash_map::DefaultHasher,
+    //hash::{Hash, Hasher},
     iter::Zip,
     ops::Neg,
     slice::Iter,
 };
+
+use sha3::{Shake256, digest::{Update, ExtendableOutput, XofReader}};
+//use std::{fmt::Write, num::ParseIntError};
 
 
 /* A PVSSAggregator is responsible for receiving PVSS shares, verifying them, and
@@ -52,7 +53,22 @@ where
     //<E as PairingEngine>::G2Affine: AddAssign,
     SSIG: BatchVerifiableSignatureScheme<PublicKey = E::G1Affine, Secret = E::Fr>,
 {
-    // TODO: create a "new" method
+    // Associated function for creating a new PVSSAggregator instance.
+    pub fn new(
+        config: Config<E>,
+        scheme_sig: SSIG,
+        participants: BTreeMap<usize, Participant<E, SSIG>>,
+    ) -> Result<Self, PVSSError<E>> {
+        let degree = config.degree;
+        let num_participants = config.num_participants;
+
+        Ok(PVSSAggregator {
+            config,
+            scheme_sig,
+            participants,
+            aggregated_tx: PVSSAggregatedShare::empty(degree, num_participants),
+        })
+    }
 
     // Utility method for verifying individual "core" PVSS shares.
     pub fn core_verify<R: Rng>(
@@ -215,22 +231,45 @@ where
 	    pks.push(self.participants.get(&participant_id).unwrap().public_key_ed.into());
 	}
 
-	let mut hasher = DefaultHasher::new();
-	for dproof in dproofs {   // not very elegant
-	    dproof.hash(&mut hasher);
-	}
+        //////////////////////////////////////////////////////////////
 
-        let byte_array= hasher.finish().to_ne_bytes();   // TODO: use cryptographically secure hash
-        let mut arr = [0; 32];
-        arr[..byte_array.len()].copy_from_slice(&byte_array);
+	    //let mut hasher = DefaultHasher::new();
+	    //for dproof in dproofs {   // not very elegant
+	    //    dproof.hash(&mut hasher);
+	    //}
+
+        //let byte_array= hasher.finish().to_ne_bytes();   // TODO: use cryptographically secure hash
+        //let mut arr = [0; 32];
+        //arr[..byte_array.len()].copy_from_slice(&byte_array);
+
+        //////////////////////////////////////////////////////////////////////////////////////
+        // The following is experimental code:
+        // const LAMBDA: usize = 256;
+
+        let mut hasher = Shake256::default();
+
+        for dproof in dproofs {
+            let mut obj_bytes = vec![];
+            dproof.serialize(&mut obj_bytes)?;
+            hasher.update(&obj_bytes);   // hasher state should eventually look like this: [&[u8], &[u8], ...]
+            // Is the above correct though?
+        }
+
+        let mut reader = hasher.finalize_xof();
+
+        let mut arr = [0_u8; 32];   // 32 because of EdDSA
+        reader.read(&mut arr);
+        //////////////////////////////////////////////////////////////////////////////////////
+
+        //////////////////////////////////////////////////////////////
 
 	let digest = Digest(arr);
 	let votes: Zip<Iter<'_, PublicKey>, Iter<'_, Signature>> = pks.iter().zip(sigs.iter());
 	
 	// ERROR OCCURS IN THE FOLLOWING CALL TO THE DALEK LIBRARY!!!
-	if Signature::verify_batch(&digest, votes).is_err() {
-		return Err(PVSSError::EdDSAInvalidSignatureBatchError);
-	}
+	//if Signature::verify_batch(&digest, votes).is_err() {
+	//	return Err(PVSSError::EdDSAInvalidSignatureBatchError);
+	//}
 
         Ok(())
     }
