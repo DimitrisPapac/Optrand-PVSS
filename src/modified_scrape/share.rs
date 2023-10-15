@@ -27,6 +27,7 @@ where
     pub signature_on_decomp: Signature,   // EdDSA-signed knowledge proof
 }
 
+
 impl<E: PairingEngine> SignedProof<E> {
     // Method enabling verification of individual signed proofs instances (FOR TESTING ONLY).
     fn verify(&mut self, conf: &Config<E>, pk_sig: &PublicKey) -> Result<(), PVSSError<E>> {
@@ -39,6 +40,7 @@ impl<E: PairingEngine> SignedProof<E> {
         Ok(())
     }
 }
+
 
 /* PVSSShare represents a PVSSCore instance that has been augmented to include the origin's id,
    as well as a signature on the decomposition proof included in the core PVSS share. */
@@ -146,7 +148,7 @@ impl<E: PairingEngine> PVSSAggregatedShare<E>
 	    // Convert other from a PVSSShare instance into a PVSSAggregatedShare instance.
 	    let mut contribs = BTreeMap::new();
 	    contribs.insert(other.participant_id, SignedProof{ decomp_proof: other.signed_proof.decomp_proof,
-							   signature_on_decomp: other.signed_proof.signature_on_decomp});
+							   signature_on_decomp: other.signed_proof.signature_on_decomp });
 
 	    let other_agg_share = Self {
             num_participants: self.num_participants,
