@@ -196,7 +196,7 @@ mod test {
     use ark_bls12_381::{G1Affine, G2Affine};
     use ark_ec::{AffineCurve, ProjectiveCurve};
 
-    use crate::signature::{utils::tests::check_serialization};
+    use crate::signature::utils::tests::check_serialization;
     use crate::nizk::scheme::NIZKProof;
     use crate::nizk::dleq::{DLEQProof, srs::SRS};
 
