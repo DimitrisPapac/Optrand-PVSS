@@ -35,7 +35,7 @@ pub type CryptoError = ed25519::Error;
 
 
 #[derive(Hash, PartialEq, Default, Eq, Clone)]
-pub struct Digest(pub [u8; 32 as usize]);
+pub struct Digest(pub [u8; 32_usize]);
 
 impl Digest {
     pub fn to_vec(&self) -> Vec<u8> {
@@ -108,7 +108,7 @@ pub trait Hash {
 /* Struct PublicKey models the public (verification) key for the EdDSA signature scheme. */
 
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Ord, PartialOrd, Default)]
-pub struct PublicKey(pub [u8; 32 as usize]);
+pub struct PublicKey(pub [u8; 32_usize]);
 
 impl PublicKey {
     pub fn to_base64(&self) -> String {
@@ -169,7 +169,7 @@ impl fmt::Display for PublicKey {
 /* Struct SecretKey models the secret (signing) key of the EdDSA signature scheme. */
 
 #[derive(Clone)]
-pub struct SecretKey([u8; 64 as usize]);
+pub struct SecretKey([u8; 64_usize]);
 
 impl SecretKey {
     pub fn to_base64(&self) -> String {
@@ -324,7 +324,7 @@ impl CanonicalSerialize for Signature {
 impl CanonicalDeserialize for Signature {
     #[inline]
     fn deserialize<R: Read>(mut reader: R) -> Result<Self, SerializationError> {
-        let result: [u8; 64 as usize] = core::array::from_fn(|_| {
+        let result: [u8; 64_usize] = core::array::from_fn(|_| {
             u8::deserialize(&mut reader).unwrap()
         });
         let pt1 = result[..32].try_into().expect("Unexpected signature length");
