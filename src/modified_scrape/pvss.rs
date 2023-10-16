@@ -33,7 +33,7 @@ where
         // Perform some basic checks:
 
         // Commitment vector must be non-empty
-        if self.comms.len() == 0 {
+        if self.comms.is_empty() {
             return Err(PVSSError::EmptyEncryptionsVectorError);
         }
 
