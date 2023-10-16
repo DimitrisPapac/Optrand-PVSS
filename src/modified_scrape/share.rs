@@ -29,8 +29,8 @@ where
 
 
 impl<E: PairingEngine> SignedProof<E> {
-    // Method enabling verification of individual signed proofs instances (FOR TESTING ONLY).
-    fn verify(&mut self, conf: &Config<E>, pk_sig: &PublicKey) -> Result<(), PVSSError<E>> {
+    // Method enabling verification of individual signed proofs instances.
+    pub fn verify(&mut self, conf: &Config<E>, pk_sig: &PublicKey) -> Result<(), PVSSError<E>> {
         // Verify the NIZK proof
         self.decomp_proof.verify(&conf).unwrap();
 
