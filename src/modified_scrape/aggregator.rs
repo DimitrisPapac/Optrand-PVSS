@@ -1,5 +1,5 @@
 use crate::{
-    Digest,
+    // Digest,
     modified_scrape::{
 	config::Config,
         decomp::DecompProof,
@@ -7,29 +7,29 @@ use crate::{
         participant::Participant,
         poly::{ensure_degree, lagrange_interpolation_simple},   // poly::Polynomial, lagrange_interpolation
         pvss::PVSSCore,
-        share::{PVSSAggregatedShare, PVSSShare},
+        share::{PVSSAggregatedShare, PVSSShare},   // message_from_pi_i
     },
-    PublicKey,
-    Signature,
+    // PublicKey,
+    // Signature,
     signature::scheme::BatchVerifiableSignatureScheme,
 };
 
 use ark_ec::{PairingEngine, ProjectiveCurve};   // msm::VariableBaseMSM, AffineCurve
 use ark_ff::{One, Zero};
-use ark_serialize::CanonicalSerialize;
+// use ark_serialize::CanonicalSerialize;
 use ark_std::collections::BTreeMap;
 
 use rand::Rng;
 use std::{
-    //collections::hash_map::DefaultHasher,
-    //hash::{Hash, Hasher},
-    iter::Zip,
+    // collections::hash_map::DefaultHasher,
+    // hash::{Hash, Hasher},
+    // iter::Zip,
     ops::Neg,
-    slice::Iter,
+    // slice::Iter,
 };
 
-use sha3::{Shake256, digest::{Update, ExtendableOutput, XofReader}};
-//use std::{fmt::Write, num::ParseIntError};
+// use sha3::{Shake256, digest::{Update, ExtendableOutput, XofReader}};
+// use std::{fmt::Write, num::ParseIntError};
 
 
 /* A PVSSAggregator is responsible for receiving PVSS shares, verifying them, and
@@ -143,13 +143,6 @@ where
         // Verify signature on decomposition proof against participant i's public key:
         let digest = share.signed_proof.decomp_proof.digest();
 
-        println!("Now verifying NIZK proof from party {}", participant_id);
-        println!("\n");
-        println!("NIZK proof's digest is:\n{:?}", digest);
-        println!("\n");
-        println!("Will use verification key:\n{:?}", participant.public_key_ed);
-        println!("\n==========================================\n");
-
         if share.signed_proof.signature_on_decomp.verify(&digest, &participant.public_key_ed).is_err() {
             return Err(PVSSError::EdDSAInvalidSignatureError);
         }
@@ -186,12 +179,12 @@ where
 	// Pairing check: e(pk_i, com_i) = e(enc_i, g2).
 
 	let correct_encryptions = (0..self.config.num_participants)
-	        .all(|i| { let pairs = [
+	        .all(|i| { let pairs: [(<E as PairingEngine>::G1Prepared, <E as PairingEngine>::G2Prepared); 2] = [
             	    (self.participants.get(&i).unwrap().public_key_sig.into(), agg_share.pvss_core.comms[i].into()),
             	    (agg_share.pvss_core.encs[i].neg().into(), self.config.srs.g2.into()),
         	];
 
-		E::product_of_pairings(pairs.iter()).is_one()
+		    E::product_of_pairings(pairs.iter()).is_one()
 	    }
 	);
 
@@ -216,60 +209,26 @@ where
             gs_total.add_assign_mixed(&contribution.decomp_proof.gs);
 	}
 
-	if gs_total.into_affine() != point {   // if gs_total != point.into_affine()
-	    return Err(PVSSError::AggregationReconstructionMismatchError);
-	}
+	    if gs_total.into_affine() != point {   // if gs_total != point.into_affine()
+	        return Err(PVSSError::AggregationReconstructionMismatchError);
+	    }
 
-	// Batch-verification of contributed signatures in the share:
-	let mut dproofs = Vec::new();
-	let mut pks: Vec<PublicKey> = Vec::new();
-	let mut sigs: Vec<Signature> = Vec::new();
+	    for (participant_id, contribution) in agg_share.contributions.iter() {
+            let party = self.participants.get(&participant_id).unwrap();
 
-	for (participant_id, contribution) in agg_share.contributions.iter() {
-	    dproofs.push(contribution.decomp_proof.clone());
-	    sigs.push(contribution.signature_on_decomp.clone());
-	    pks.push(self.participants.get(&participant_id).unwrap().public_key_ed.into());
-	}
+            // Verify individual signed proof
+            if contribution.clone().verify(&self.config, &party.public_key_ed).is_err() {
+                return Err(PVSSError::EdDSAInvalidSignatureError);
+            }
+	    }
 
-        //////////////////////////////////////////////////////////////
-
-	    //let mut hasher = DefaultHasher::new();
-	    //for dproof in dproofs {   // not very elegant
-	    //    dproof.hash(&mut hasher);
-	    //}
-
-        //let byte_array= hasher.finish().to_ne_bytes();   // TODO: use cryptographically secure hash
-        //let mut arr = [0; 32];
-        //arr[..byte_array.len()].copy_from_slice(&byte_array);
-
-        //////////////////////////////////////////////////////////////////////////////////////
-        // The following is experimental code:
-        // const LAMBDA: usize = 256;
-
-        let mut hasher = Shake256::default();
-
-        for dproof in dproofs {
-            let mut obj_bytes = vec![];
-            dproof.serialize(&mut obj_bytes)?;
-            hasher.update(&obj_bytes);   // hasher state should eventually look like this: [&[u8], &[u8], ...]
-            // Is the above correct though?
-        }
-
-        let mut reader = hasher.finalize_xof();
-
-        let mut arr = [0_u8; 32];   // 32 because of EdDSA
-        reader.read(&mut arr);
-        //////////////////////////////////////////////////////////////////////////////////////
-
-        //////////////////////////////////////////////////////////////
-
-	let digest = Digest(arr);
-	let votes: Zip<Iter<'_, PublicKey>, Iter<'_, Signature>> = pks.iter().zip(sigs.iter());
+	    //let digest = Digest(arr);
+	    //let votes: Zip<Iter<'_, PublicKey>, Iter<'_, Signature>> = pks.iter().zip(sigs.iter());
 	
-	// ERROR OCCURS IN THE FOLLOWING CALL TO THE DALEK LIBRARY!!!
-	//if Signature::verify_batch(&digest, votes).is_err() {
-	//	return Err(PVSSError::EdDSAInvalidSignatureBatchError);
-	//}
+	    // ERROR OCCURS IN THE FOLLOWING CALL TO THE DALEK LIBRARY!!!
+	    //if Signature::verify_batch(&digest, votes).is_err() {
+	    //	return Err(PVSSError::EdDSAInvalidSignatureBatchError);
+	    //}
 
         Ok(())
     }
