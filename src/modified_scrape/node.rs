@@ -129,21 +129,14 @@ where
     // Method for creating a PVSSShare instance for secret sharing.
     pub fn share<R: Rng>(&mut self, rng: &mut R) -> Result<PVSSShare<E>, PVSSError<E>> {
         // Create the core PVSSCore first.
-	let (pvss_core, pvss_share_secrets) = self.share_pvss(rng)?;
+	    let (pvss_core, pvss_share_secrets) = self.share_pvss(rng)?;
 
-	// Generate decomposition proof.
-	let mut decomp_proof = Decomp::<E>::generate(rng, &self.aggregator.config, &pvss_share_secrets.p_0).unwrap();
+	    // Generate decomposition proof.
+	    let mut decomp_proof = Decomp::<E>::generate(rng, &self.aggregator.config, &pvss_share_secrets.p_0).unwrap();
 
         let digest = decomp_proof.digest();
 
-        println!("Party {} now signing NIZK proof:", self.dealer.participant.id);
-        println!("\n");
-        println!("NIZK proof's digest is:\n{:?}", digest);
-        println!("\n");
-        println!("Party {}'s EdDSA signing key is:\n{:?}", self.dealer.participant.id, self.dealer.private_key_ed);
-        println!("\n");
-        println!("Party {}'s EdDSA matching verification key is:\n{:?}", self.dealer.participant.id, self.dealer.participant.public_key_ed);
-        println!("\n==========================================\n");
+        // println!("Received digest: {:?}", digest.0);   // Matches computation inside decomp.rs
 
         // Sign the decomposition proof using EdDSA
 	let signature_on_decomp = Signature::new(&digest, &self.dealer.private_key_ed);
@@ -152,6 +145,8 @@ where
         decomp_proof,
         signature_on_decomp,
     };
+
+    // println!("{:?}", signed_proof.decomp_proof);
 
 	// Create the PVSS share.
 	let share = PVSSShare {
@@ -192,7 +187,7 @@ mod test {
     };
 
     use ark_bls12_381::{
-	Bls12_381,                         // type Bls12_381 = Bls12<Parameters> (Bls12 implements PairingEngine)
+	    Bls12_381,         // type Bls12_381 = Bls12<Parameters> (Bls12 implements PairingEngine)
     };
     use ark_ec::PairingEngine;
     use ark_std::collections::BTreeMap;
@@ -390,7 +385,7 @@ mod test {
         let mut pvss_c = node_c.share(rng).unwrap();
         let mut pvss_d = node_d.share(rng).unwrap();
 
-        println!("LEVEL 1:\n");
+        //println!("LEVEL 1:\n");
 
         // Party A aggregates its own share
         node_a.aggregator.receive_share(rng, &mut pvss_a).unwrap();   // works
@@ -423,7 +418,7 @@ mod test {
         // Aggregated share of the right subcommittee
         let agg_share_cd = node_c.aggregator.aggregated_tx.clone();
 
-        println!("LEVEL 2:\n");
+        //println!("LEVEL 2:\n");
 
         // Right subcommittee receives the left subcommittee's aggregated share
         node_c.aggregator.receive_aggregated_share(rng, &agg_share_ab).unwrap();   // EdDSAInvalidSignatureBatchError
@@ -439,6 +434,65 @@ mod test {
         assert_eq!(node_c.aggregator.aggregated_tx, node_d.aggregator.aggregated_tx);
     }
 
+
+    /*
+    use sha3::{Shake256, digest::{Update, ExtendableOutput, XofReader}};
+    #[test]
+    fn foo_test() {
+        // Hashing to lambda bits
+        
+        const LAMBDA: usize = 256;
+
+        let mut hasher = Shake256::default();
+
+        let mut obj_bytes = vec![];
+        gt.serialize(&mut obj_bytes)?;
+        hasher.update(&obj_bytes);
+
+        let mut reader = hasher.finalize_xof();
+
+        let mut arr = [0_u8; LAMBDA>>3];
+        reader.read(&mut arr);
+        
+        //
+        let v: Vec<u8> = vec![10, 20, 30];
+        println!("{:?}", v);
+        let w: &[u8] = &v;
+        println!("{:?}", w);
+
+        // Beacon epoch r:
+        let sigma_i = (epoch_generator.mul(ai.into_repr()).into_affine(),
+            <Bls12_381 as PairingEngine>::pairing(dec.into(), epoch_generator.into()));
+        
+        let rng = &mut thread_rng();
+        let srs = SRS::<G1Affine, G2Affine> {
+            g_public_key: epoch_generator,
+            h_public_key: node.aggregator.config.srs.g2,
+        };   // Everyone should have the same setup at this point!
+        let dleq = DLEQProof { srs };
+        //let pair = dleq.generate_pair(rng).unwrap();
+    
+        //let (wit, stmnt) = dleq.from_witness(&ai);
+        let dleq_proof_i = dleq.prove(rng, &ai).unwrap();   // (Self::Statement, Self::Challenge, C1::ScalarField)
+
+        // multicast (sigma_i, dleq_proof_i)
+
+        // upon reception:
+
+        let srs = SRS::<G1Affine, G2Affine> {
+            g_public_key: epoch_generator,
+            h_public_key: node.aggregator.config.srs.g2,
+        };   // Everyone should have the same setup at this point!
+        let dleq = DLEQProof::from_srs(srs);
+
+        dleq_proof
+            .verify(, &dleq_proof_j);
+
+        //dleq_proof
+        //    .verify(&pair.1, &proof)
+        //    .unwrap();
+    }
+    */
 
     /*
     #[test]
