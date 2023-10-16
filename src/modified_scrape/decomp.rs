@@ -12,15 +12,16 @@ use ark_std::fmt::Debug;
 
 use rand::Rng;
 use std::{
-    collections::hash_map::DefaultHasher,
     hash::{Hash, Hasher},
     io::Cursor,
     marker::PhantomData,
 };
 
+use sha3::{Shake256, digest::{Update, ExtendableOutput, XofReader}};
+
 
 pub type ProofGroup<E> = <E as PairingEngine>::G2Affine;   // the group over which the proof is computed
-pub type ProofType<E> = DecompProof<E>;   		   // the type of output decomposition proofs
+pub type ProofType<E> = DecompProof<E>;   		           // the type of output decomposition proofs
 
 // Struct Decomp models the Decomposition proof system.
 #[derive(Clone, Debug, CanonicalSerialize, CanonicalDeserialize, PartialEq)]
@@ -72,7 +73,7 @@ impl<E: PairingEngine> DecompProof<E> {
 
 	// If you intercept a NIZKError, return a PVSSError variant.
 	if dlk.verify(&self.gs, &self.proof)
-		.is_err() {
+		  .is_err() {
 	    return Err(PVSSError::NIZKProofDoesNotVerifyError);
 	}
 
@@ -80,6 +81,26 @@ impl<E: PairingEngine> DecompProof<E> {
     }
 
     pub fn digest(&mut self) -> Digest {
+        let mut hasher = Shake256::default();
+
+        let mut proof_bytes = vec![];
+        let _ = self.proof.serialize(&mut proof_bytes);
+
+        let mut gs_bytes = vec![];
+        let _ = self.gs.serialize(&mut gs_bytes);
+
+        let data = &[&proof_bytes[..], &gs_bytes[..]].concat();
+
+        hasher.update(data);
+
+        let mut reader = hasher.finalize_xof();
+        let mut arr = [0_u8; 32];
+        XofReader::read(&mut reader, &mut arr);
+
+        Digest(arr)
+
+        /*
+        // Original code of digest:
         let mut hasher = DefaultHasher::new();
         self.hash(&mut hasher);
         let byte_array= hasher.finish().to_ne_bytes();   // TODO: use cryptographically secure hash
@@ -87,6 +108,7 @@ impl<E: PairingEngine> DecompProof<E> {
         arr[..byte_array.len()].copy_from_slice(&byte_array);
 
         Digest(arr)
+        */
     }
 }
 
