@@ -214,7 +214,7 @@ where
 	    }
 
 	    for (participant_id, contribution) in agg_share.contributions.iter() {
-            let party = self.participants.get(&participant_id).unwrap();
+            let party = self.participants.get(participant_id).unwrap();
 
             // Verify individual signed proof
             if contribution.clone().verify(&self.config, &party.public_key_ed).is_err() {
@@ -245,7 +245,7 @@ where
         self.share_verify(rng, share)?;
 
         // Aggregate the PVSS share into the aggregator's internal aggregated transcript.
-        self.aggregated_tx = self.aggregated_tx.aggregate_pvss_share(&share)?;
+        self.aggregated_tx = self.aggregated_tx.aggregate_pvss_share(share)?;
 
         Ok(())
     }
@@ -263,7 +263,7 @@ where
 	self.aggregation_verify(rng, agg_share)?;
 
 	// Aggregate the received aggregated PVSS share into the aggregator's internal aggregated transcript.
-	self.aggregated_tx = self.aggregated_tx.aggregate(&agg_share).unwrap();
+	self.aggregated_tx = self.aggregated_tx.aggregate(agg_share).unwrap();
 
         Ok(())
     }
