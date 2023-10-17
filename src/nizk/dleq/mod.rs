@@ -112,7 +112,7 @@ where
         )?;
 
         // Compute the "response" part of the proof
-        let z = r - &(*w * &hashed_message);
+        let z = r - (*w * hashed_message);
 
         // Form and return the result
 	let proof = ((g_r, h_r), hashed_message, z);
@@ -165,7 +165,7 @@ where
 
 	// compute LHS of the first verification condition
 	let lhs1 = (self.srs.g_public_key.mul(proof.2.into_repr())
-            + &statement.0.mul(hashed_message.into_repr()))
+            + statement.0.mul(hashed_message.into_repr()))
             .into_affine();
 
 	// compute RHS of the first verification condition
@@ -173,7 +173,7 @@ where
 
 	// compute LHS of the second verification condition
 	let lhs2 = (self.srs.h_public_key.mul(proof.2.into_repr())
-            + &statement.1.mul(hashed_message.into_repr()))
+            + statement.1.mul(hashed_message.into_repr()))
             .into_affine();
 
 	// compute RHS of the second verification condition
@@ -230,7 +230,9 @@ mod test {
         let dleq = DLEQProof { srs };
         let pair = dleq.generate_pair(rng).unwrap();
 
-        let proof = dleq.prove(rng, &pair.0).unwrap();
+        // let stmnt = dleq.from_witness(&pair.0).unwrap();
+
+        let proof: ((C1, C2), <C1 as AffineCurve>::ScalarField, <C1 as AffineCurve>::ScalarField) = dleq.prove(rng, &pair.0).unwrap();
         dleq
             .verify(&pair.1, &proof)
             .unwrap();
