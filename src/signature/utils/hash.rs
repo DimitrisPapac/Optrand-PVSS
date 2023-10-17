@@ -14,8 +14,7 @@ fn rng_from_message(personalization: &[u8], message: &[u8]) -> ChaChaRng {
         .finalize();
     let mut seed = [0u8; 32];
     seed.copy_from_slice(hash.as_bytes());
-    let rng = ChaChaRng::from_seed(seed);
-    rng
+    ChaChaRng::from_seed(seed)
 }
 
 pub fn hash_to_group<C: AffineCurve>(
