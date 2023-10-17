@@ -32,10 +32,10 @@ impl<E: PairingEngine> SignedProof<E> {
     // Method enabling verification of individual signed proofs instances.
     pub fn verify(&mut self, conf: &Config<E>, pk_sig: &PublicKey) -> Result<(), PVSSError<E>> {
         // Verify the NIZK proof
-        self.decomp_proof.verify(&conf).unwrap();
+        self.decomp_proof.verify(conf).unwrap();
 
         // Verify the signature on the NIZK proof
-        self.signature_on_decomp.verify(&mut self.decomp_proof.digest(), &pk_sig).unwrap();
+        self.signature_on_decomp.verify(&self.decomp_proof.digest(), pk_sig).unwrap();
 
         Ok(())
     }
@@ -117,7 +117,7 @@ impl<E: PairingEngine> PVSSAggregatedShare<E>
                         // Only keep a's signed proof
                         let signed_proof = SignedProof {
                             decomp_proof: a.decomp_proof,
-                            signature_on_decomp: a.signature_on_decomp.clone(),
+                            signature_on_decomp: a.signature_on_decomp,
                         };
                         Ok(Some((i, signed_proof)))
                     }
@@ -128,7 +128,8 @@ impl<E: PairingEngine> PVSSAggregatedShare<E>
             )
             .collect::<Result<Vec<_>, _>>()?
             .into_iter()
-            .filter_map(|e| e)
+            //.filter_map(|e| e)
+            .flatten()
             .collect::<Vec<_>>();
 
         let aggregated_share = Self {
