@@ -6,9 +6,11 @@ use crate::{
 use ark_ec::{AffineCurve, PairingEngine, ProjectiveCurve};
 use ark_ff::{Field, Zero, One, PrimeField};
 use ark_poly::{UVPolynomial, Polynomial as Poly, polynomial::univariate::DensePolynomial};
-//use ark_std::ops::AddAssign;
+use ark_std::ops::AddAssign;
+
 
 use rand::Rng;
+use std::ops::Mul;
 
 
 // A polynomial with the various coefficients in the Scalar Group
@@ -163,20 +165,70 @@ where
 }
 
 
+// Utility function for Lagrange interpolation from a given list of points
+// and evaluations.
+pub fn lagrange_interpolation_gt<E>(evals: &Vec<<E as PairingEngine>::Fqk>,
+    points: &Vec<u64>,   // &Vec<Scalar<E>>,
+    degree: u64) -> Result<<E as PairingEngine>::Fqk, PVSSError<E>> 
+where
+    E: PairingEngine,
+    Scalar<E>: From<u64>,
+    <E as PairingEngine>::Fqk: Mul<<<E as PairingEngine>::Fqk as Field>::BasePrimeField>,
+    <E as PairingEngine>::Fqk: AddAssign<<<E as PairingEngine>::Fqk as Mul<<<E as PairingEngine>::Fqk as Field>::BasePrimeField>>::Output>,
+    //<E as PairingEngine>::Fqk: Mul<<<E as PairingEngine>::Fr as PrimeField>::BigInt>,
+    //<E as PairingEngine>::Fqk: AddAssign<<<E as PairingEngine>::Fqk as Mul<<<E as PairingEngine>::Fr as PrimeField>::BigInt>>::Output>,
+{
+    if evals.len() < (degree + 1) as usize {
+        return Err(PVSSError::InsufficientEvaluationsError);
+    }
+
+    if evals.len() != points.len() {
+        return Err(PVSSError::DifferentPointsEvalsError);
+    }
+
+    let mut sum = E::Fqk::zero();
+
+    for j in 0..=degree {
+        let x_j = <<E as PairingEngine>::Fqk as Field>::BasePrimeField::from(points[j as usize]);
+        let mut prod = <<E as PairingEngine>::Fqk as Field>::BasePrimeField::one();
+        for k in 0..=degree {
+            if j != k {
+                let x_k = <<E as PairingEngine>::Fqk as Field>::BasePrimeField::from(points[k as usize]);
+                prod *= x_k * (x_k - x_j).inverse().unwrap();
+            }
+        }
+
+        // Recovery formula
+        sum += evals[j as usize] * prod;
+    }
+
+    Ok(sum)
+}
+
+
+
 /* Unit tests: */
 
 
 #[cfg(test)]
 mod test {
+    use std::ops::Mul;
+
     use crate::{
         modified_scrape::{
-            poly::{Polynomial, ensure_degree, lagrange_interpolation_simple, lagrange_interpolation_g2},
+            poly::{
+                Polynomial,
+                ensure_degree,
+                lagrange_interpolation_simple,
+                lagrange_interpolation_g2,
+                lagrange_interpolation_gt,
+            },
             srs::SRS,
         },
         Scalar,
     };
 
-    use ark_bls12_381::Bls12_381 as E;   // implements PairingEngine
+    use ark_bls12_381::{Bls12_381 as E, G1Affine};   // implements PairingEngine
     use ark_ec::{PairingEngine, AffineCurve, ProjectiveCurve};
     use ark_ff::PrimeField;
     use ark_poly::{UVPolynomial, Polynomial as Poly};
@@ -321,4 +373,36 @@ mod test {
 	assert_eq!(reconstructed_secret, shared_secret);
     }
 
+/*
+    #[test]
+    fn test_lagrange_interpolation_target_group() {
+	    let rng = &mut thread_rng();
+        let deg = rng.gen_range(MIN_DEGREE, MAX_DEGREE) as u64;
+
+	    let srs = SRS::<E>::setup(rng).unwrap();   // setup PVSS scheme's SRS
+        let g1 = srs.g1;
+	    let epoch_generator = srs.g2;   // assume that g2 is the epoch generator in G2
+
+        // let x = <E as PairingEngine>::Fqk::rand(rng);
+        
+        // random points in G1 representing the decrypted shares
+        let sks: Vec<G1Affine>= (1..=(deg+1))
+                        .map(|_| g1.mul(<E as PairingEngine>::Fr::rand(rng).into_repr()).into_affine())
+                        .collect();
+
+        // sigma_{j, 2} := e(SK_j, g_r)
+        let evals = (0..sks.len())
+                             .map(|i| E::pairing(sks[i].into(), epoch_generator.into()))
+                             .collect::<Vec<_>>();
+
+        // Assume for simplicity that the shares come from the first t+1 parties
+        let points: Vec<Scalar<E>> = (0..=deg)
+                                                    .map(|j| Scalar::<E>::from(j as u64))
+                                                    .collect();
+
+	    let reconstructed_secret = lagrange_interpolation_gt::<E>(&evals, &points, deg).unwrap();
+
+	    // assert_eq!(reconstructed_secret, shared_secret);
+    }
+*/
 }
