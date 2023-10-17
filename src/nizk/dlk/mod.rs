@@ -79,7 +79,7 @@ impl<C: AffineCurve> NIZKProof for DLKProof<C> {
         )?;
 
         // Compute the "response" part of the proof
-        let z = r - &(*w * &hashed_message);
+        let z = r - (*w * hashed_message);
 
         // Form and return the result
 	let proof = (g_r, hashed_message, z);
@@ -108,7 +108,7 @@ impl<C: AffineCurve> NIZKProof for DLKProof<C> {
 
 	// compute LHS of the verification condition
 	let check = (self.srs.g_public_key.mul(proof.2.into_repr())
-            + &stmnt.mul(hashed_message.into_repr()))
+            + stmnt.mul(hashed_message.into_repr()))
             .into_affine();
 
 	// Compare LHS against RHS as per the verification condition and ensure
@@ -127,7 +127,7 @@ impl<C: AffineCurve> NIZKProof for DLKProof<C> {
 
 #[cfg(test)]
 mod test {
-    use crate::signature::{utils::tests::check_serialization};
+    use crate::signature::utils::tests::check_serialization;
     use crate::nizk::{dlk::{DLKProof, srs::SRS}, scheme::NIZKProof};
 
     use ark_ff::{PrimeField, UniformRand};
