@@ -81,7 +81,7 @@ impl<C: AffineCurve> SignatureScheme for SchnorrSignature<C> {
         )?;
 
         // compute "response"
-        let r = v - &(*sk * &hashed_message);
+        let r = v - (*sk * hashed_message);   // v - &(*sk * &hashed_message)
 
         // compute and return the Schnorr signature
         let sig = (v_g, r);
@@ -114,7 +114,7 @@ impl<C: AffineCurve> SignatureScheme for SchnorrSignature<C> {
 
         // compute LHS of the verification condition
         let check = (self.srs.g_public_key.mul(signature.1.into_repr())
-            + &pk.mul(hashed_message.into_repr()))
+            + pk.mul(hashed_message.into_repr()))
             .into_affine();
 
         // Compare LHS against RHS as per the verification condition
@@ -172,10 +172,10 @@ impl<C: AffineCurve> BatchVerifiableSignatureScheme for SchnorrSignature<C> {
             )?;
 
             bases.push(self.srs.g_public_key.into_projective());
-            scalars.push((signatures[i].1 * &current_alpha).into_repr());
+            scalars.push((signatures[i].1 * current_alpha).into_repr());
 
             bases.push(public_keys[i].into_projective());
-            scalars.push((hashed_message * &current_alpha).into_repr());
+            scalars.push((hashed_message * current_alpha).into_repr());
 
             bases.push(signatures[i].0.into_projective());
             scalars.push(current_alpha.neg().into_repr());
