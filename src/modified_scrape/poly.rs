@@ -165,7 +165,7 @@ where
 // Utility function for Lagrange interpolation from a given list of points
 // and evaluations.
 pub fn lagrange_interpolation_gt<E>(evals: &Vec<<E as PairingEngine>::Fqk>,
-    points: &Vec<u64>,   // &Vec<Scalar<E>>,
+    points: &Vec<u64>,
     degree: u64) -> Result<<E as PairingEngine>::Fqk, PVSSError<E>> 
 where
     E: PairingEngine,
@@ -179,7 +179,7 @@ where
         return Err(PVSSError::DifferentPointsEvalsError);
     }
 
-    let mut result = E::Fqk::one(); //E::Fqk::zero();
+    let mut result = E::Fqk::one();
 
     for j in 0..=degree {
         let x_j = <<E as PairingEngine>::Fqk as Field>::BasePrimeField::from(points[j as usize]);
