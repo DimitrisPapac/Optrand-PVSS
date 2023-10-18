@@ -6,11 +6,8 @@ use crate::{
 use ark_ec::{AffineCurve, PairingEngine, ProjectiveCurve};
 use ark_ff::{Field, Zero, One, PrimeField};
 use ark_poly::{UVPolynomial, Polynomial as Poly, polynomial::univariate::DensePolynomial};
-use ark_std::ops::AddAssign;
-
 
 use rand::Rng;
-use std::ops::Mul;
 
 
 // A polynomial with the various coefficients in the Scalar Group
@@ -208,8 +205,6 @@ where
 
 #[cfg(test)]
 mod test {
-    use std::ops::Mul;
-
     use crate::{
         modified_scrape::{
             poly::{
@@ -226,12 +221,11 @@ mod test {
 
     use ark_bls12_381::{Bls12_381 as E, G1Affine};   // implements PairingEngine
     use ark_ec::{PairingEngine, AffineCurve, ProjectiveCurve};
-    use ark_ff::{PrimeField, Field};
+    use ark_ff::PrimeField;
     use ark_poly::{UVPolynomial, Polynomial as Poly};
     use ark_std::UniformRand;
 
     use rand::{Rng, thread_rng};
-    use threshold_crypto::G1;
 
     // cargo test -- --nocapture
 
