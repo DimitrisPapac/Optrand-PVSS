@@ -385,8 +385,6 @@ mod test {
         let mut pvss_c = node_c.share(rng).unwrap();
         let mut pvss_d = node_d.share(rng).unwrap();
 
-        //println!("LEVEL 1:\n");
-
         // Party A aggregates its own share
         node_a.aggregator.receive_share(rng, &mut pvss_a).unwrap();   // works
         // Party A gets party B's share through communication
@@ -418,10 +416,8 @@ mod test {
         // Aggregated share of the right subcommittee
         let agg_share_cd = node_c.aggregator.aggregated_tx.clone();
 
-        //println!("LEVEL 2:\n");
-
         // Right subcommittee receives the left subcommittee's aggregated share
-        node_c.aggregator.receive_aggregated_share(rng, &agg_share_ab).unwrap();   // EdDSAInvalidSignatureBatchError
+        node_c.aggregator.receive_aggregated_share(rng, &agg_share_ab).unwrap();
         node_d.aggregator.receive_aggregated_share(rng, &agg_share_ab).unwrap();
 
         // Left subcommittee receives the right subcommittee's aggregated share
@@ -432,5 +428,233 @@ mod test {
         assert_eq!(node_a.aggregator.aggregated_tx, node_b.aggregator.aggregated_tx);
         assert_eq!(node_b.aggregator.aggregated_tx, node_c.aggregator.aggregated_tx);
         assert_eq!(node_c.aggregator.aggregated_tx, node_d.aggregator.aggregated_tx);
+
+        /*
+        println!("The aggregated tx for A is:\n\n{:?}", node_a.aggregator.aggregated_tx);
+        println!("\n\n");
+        println!("The aggregated tx for B is:\n\n{:?}", node_b.aggregator.aggregated_tx);
+        println!("\n\n");
+        println!("The aggregated tx for C is:\n\n{:?}", node_c.aggregator.aggregated_tx);
+        println!("\n\n");
+        println!("The aggregated tx for D is:\n\n{:?}", node_d.aggregator.aggregated_tx);
+        println!("\n\n");
+        */
     }
+
+
+    #[test]
+    #[should_panic]
+    fn test_double_aggregation() {
+        let rng = &mut thread_rng();
+
+        // Global settings
+        let srs = SRS::<Bls12_381>::setup(rng).unwrap();
+        let schnorr_srs = SCHSRS::<<Bls12_381 as PairingEngine>::G1Affine>::setup(rng).unwrap();
+        let schnorr_sig = SchnorrSignature { srs: schnorr_srs };
+
+        // Set global configuration parameters
+        let config = Config {
+            srs: srs.clone(),
+            degree: 2,
+            num_participants: 4,
+        };
+
+        // Generate key pairs for party A
+        let dealer_keypair_sig_a = schnorr_sig.generate_keypair(rng).unwrap();   // (sk, pk)
+        let eddsa_keypair_a = generate_production_keypair();                     // (pk, sk)
+
+        // Create the dealer instance for party A
+        let dealer_a: Dealer<Bls12_381,   //Bls12<ark_bls12_381::Parameters>,
+			   SchnorrSignature<<Bls12_381 as PairingEngine>::G1Affine>> = Dealer {
+            private_key_sig: dealer_keypair_sig_a.0,
+    	    private_key_ed: eddsa_keypair_a.1,
+            participant: Participant {
+                pairing_type: PhantomData,
+                id: 0,
+                public_key_sig: dealer_keypair_sig_a.1,
+                public_key_ed: eddsa_keypair_a.0,
+            },
+        };
+
+        // Generate key pairs for party B
+        let dealer_keypair_sig_b = schnorr_sig.generate_keypair(rng).unwrap();   // (sk, pk)
+        let eddsa_keypair_b = generate_production_keypair();                     // (pk, sk)
+
+        // Create the dealer instance for party B
+        let dealer_b: Dealer<Bls12_381,   //Bls12<ark_bls12_381::Parameters>,
+			   SchnorrSignature<<Bls12_381 as PairingEngine>::G1Affine>> = Dealer {
+            private_key_sig: dealer_keypair_sig_b.0,
+    	    private_key_ed: eddsa_keypair_b.1,
+            participant: Participant {
+                pairing_type: PhantomData,
+                id: 1,
+                public_key_sig: dealer_keypair_sig_b.1,
+                public_key_ed: eddsa_keypair_b.0,
+            },
+        };
+
+        // Generate key pairs for party C
+        let dealer_keypair_sig_c = schnorr_sig.generate_keypair(rng).unwrap();   // (sk, pk)
+        let eddsa_keypair_c = generate_production_keypair();                     // (pk, sk)
+
+        // Create the dealer instance for party C
+        let dealer_c: Dealer<Bls12_381,   //Bls12<ark_bls12_381::Parameters>,
+			   SchnorrSignature<<Bls12_381 as PairingEngine>::G1Affine>> = Dealer {
+            private_key_sig: dealer_keypair_sig_c.0,
+    	    private_key_ed: eddsa_keypair_c.1,
+            participant: Participant {
+                pairing_type: PhantomData,
+                id: 2,
+                public_key_sig: dealer_keypair_sig_c.1,
+                public_key_ed: eddsa_keypair_c.0,
+            },
+        };
+
+        // Generate key pairs for party D
+        let dealer_keypair_sig_d = schnorr_sig.generate_keypair(rng).unwrap();   // (sk, pk)
+        let eddsa_keypair_d = generate_production_keypair();                     // (pk, sk)
+
+        // Create the dealer instance for party D
+        let dealer_d: Dealer<Bls12_381,   //Bls12<ark_bls12_381::Parameters>,
+			   SchnorrSignature<<Bls12_381 as PairingEngine>::G1Affine>> = Dealer {
+            private_key_sig: dealer_keypair_sig_d.0,
+    	    private_key_ed: eddsa_keypair_d.1,
+            participant: Participant {
+                pairing_type: PhantomData,
+                id: 3,
+                public_key_sig: dealer_keypair_sig_d.1,
+                public_key_ed: eddsa_keypair_d.0,
+            },
+        };
+
+        let participants_vec = vec![
+            dealer_a.participant.clone(),
+            dealer_b.participant.clone(),
+            dealer_c.participant.clone(),
+            dealer_d.participant.clone(),
+        ];
+        let num_participants = participants_vec.len();
+        let _degree = config.degree;
+
+        let mut participants = BTreeMap::new();
+        for (id, party) in (0..num_participants).zip(participants_vec) {
+            participants.insert(id, party);
+        }
+        
+        // Create the node instance for party A
+        let mut node_a = Node::new(
+            config.clone(),
+            schnorr_sig.clone(),
+            dealer_a,
+            participants.clone(),
+        ).unwrap();
+        
+        // Create the node instance for party B
+        let mut _node_b = Node::new(
+            config.clone(),
+            schnorr_sig.clone(),
+            dealer_b,
+            participants.clone(),
+        ).unwrap();
+        
+        // Create the node instance for party C
+        let mut _node_c = Node::new(
+            config.clone(),
+            schnorr_sig.clone(),
+            dealer_c,
+            participants.clone(),
+        ).unwrap();
+        
+        // Create the node instance for party D
+        let mut _node_d = Node::new(
+            config.clone(),
+            schnorr_sig.clone(),
+            dealer_d,
+            participants.clone(),
+        ).unwrap();
+
+        // Node generates its PVSSShare:
+        let mut pvss_a = node_a.share(rng).unwrap();
+
+        // A duplicate of A's share:
+        let mut dup_pvss_a = pvss_a.clone();
+
+        // println!("Node's aggregated_tx is initially:\n\n{:?}", node_a.aggregator.aggregated_tx);
+
+        // Party A aggregates its original share
+        node_a.aggregator.receive_share(rng, &mut pvss_a).unwrap();
+
+        // println!("Node's aggregated_tx is now:\n\n{:?}", node_a.aggregator.aggregated_tx);
+        let res1 = node_a.aggregator.aggregated_tx.clone();
+
+        // Party A attempts to aggregate the same share again
+        node_a.aggregator.receive_share(rng, &mut dup_pvss_a).unwrap();
+        let res2 = node_a.aggregator.aggregated_tx.clone();
+
+        // Be wary, as in this scenario, the pvss_core "desyncs" with the gs values found within
+        // the aggregated_tx's contributions map.
+        // This can be addressed by introducing weights as Meiklejohn et al. do.
+        assert_eq!(res1, res2);
+
+        // println!("Node's aggregated_tx is now:\n\n{:?}", node_a.aggregator.aggregated_tx);
+    }
+
+    /*
+    use sha3::{Shake256, digest::{Update, ExtendableOutput, XofReader}};
+    #[test]
+    fn foo_test() {
+        // Hashing to lambda bits
+        
+        const LAMBDA: usize = 256;
+
+        let mut hasher = Shake256::default();
+
+        let mut obj_bytes = vec![];
+        gt.serialize(&mut obj_bytes)?;
+        hasher.update(&obj_bytes);
+
+        let mut reader = hasher.finalize_xof();
+
+        let mut arr = [0_u8; LAMBDA>>3];
+        reader.read(&mut arr);
+        
+        //
+        let v: Vec<u8> = vec![10, 20, 30];
+        println!("{:?}", v);
+        let w: &[u8] = &v;
+        println!("{:?}", w);
+
+        // Beacon epoch r:
+        let sigma_i = (epoch_generator.mul(ai.into_repr()).into_affine(),
+            <Bls12_381 as PairingEngine>::pairing(dec.into(), epoch_generator.into()));
+        
+        let rng = &mut thread_rng();
+        let srs = SRS::<G1Affine, G2Affine> {
+            g_public_key: epoch_generator,
+            h_public_key: node.aggregator.config.srs.g2,
+        };   // Everyone should have the same setup at this point!
+        let dleq = DLEQProof { srs };
+        //let pair = dleq.generate_pair(rng).unwrap();
+    
+        //let (wit, stmnt) = dleq.from_witness(&ai);
+        let dleq_proof_i = dleq.prove(rng, &ai).unwrap();   // (Self::Statement, Self::Challenge, C1::ScalarField)
+
+        // multicast (sigma_i, dleq_proof_i)
+
+        // upon reception:
+
+        let srs = SRS::<G1Affine, G2Affine> {
+            g_public_key: epoch_generator,
+            h_public_key: node.aggregator.config.srs.g2,
+        };   // Everyone should have the same setup at this point!
+        let dleq = DLEQProof::from_srs(srs);
+
+        dleq_proof
+            .verify(, &dleq_proof_j);
+
+        //dleq_proof
+        //    .verify(&pair.1, &proof)
+        //    .unwrap();
+    }
+    */
 }
