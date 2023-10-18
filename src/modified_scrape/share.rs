@@ -128,7 +128,6 @@ impl<E: PairingEngine> PVSSAggregatedShare<E>
             )
             .collect::<Result<Vec<_>, _>>()?
             .into_iter()
-            //.filter_map(|e| e)
             .flatten()
             .collect::<Vec<_>>();
 
