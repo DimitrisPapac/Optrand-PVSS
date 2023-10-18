@@ -54,8 +54,10 @@ pub enum PVSSError<E: PairingEngine> {
     AggregationReconstructionMismatchError,
     #[error("EdDSA signature is invalid")]
     EdDSAInvalidSignatureError,
-    #[error("EdDSA batch of signatures is invalid")]
-    EdDSAInvalidSignatureBatchError,
+    #[error("Signed proof is invalid")]
+    InvalidSignedProofError,
+    // #[error("EdDSA batch of signatures is invalid")]
+    // EdDSAInvalidSignatureBatchError,
     #[error("NIZK proof does not verify")]
     NIZKProofDoesNotVerifyError,
 
