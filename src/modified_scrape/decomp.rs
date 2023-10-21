@@ -1,4 +1,5 @@
 use crate::{
+    ComGroup,
     Digest,
     modified_scrape::{config::Config, errors::PVSSError},
     nizk::{dlk::{DLKProof, srs::SRS as DLKSRS}, scheme::NIZKProof},
@@ -7,7 +8,7 @@ use crate::{
 
 use ark_ec::{AffineCurve, PairingEngine, ProjectiveCurve};
 use ark_ff::PrimeField;
-use ark_serialize::*;
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Read, SerializationError, Write};
 use ark_std::fmt::Debug;
 
 use rand::Rng;
@@ -20,8 +21,8 @@ use std::{
 use sha3::{Shake256, digest::{Update, ExtendableOutput, XofReader}};
 
 
-pub type ProofGroup<E> = <E as PairingEngine>::G2Affine;   // the group over which the proof is computed
-pub type ProofType<E> = DecompProof<E>;   		           // the type of output decomposition proofs
+pub type ProofGroup<E> = ComGroup<E>;     // the group over which the decomposition proof is computed
+pub type ProofType<E> = DecompProof<E>;   // the type of output decomposition proofs
 
 // Struct Decomp models the Decomposition proof system.
 #[derive(Clone, Debug, CanonicalSerialize, CanonicalDeserialize, PartialEq)]
@@ -98,17 +99,6 @@ impl<E: PairingEngine> DecompProof<E> {
         XofReader::read(&mut reader, &mut arr);
 
         Digest(arr)
-
-        /*
-        // Original code of digest:
-        let mut hasher = DefaultHasher::new();
-        self.hash(&mut hasher);
-        let byte_array= hasher.finish().to_ne_bytes();   // TODO: use cryptographically secure hash
-        let mut arr = [0; 32];
-        arr[..byte_array.len()].copy_from_slice(&byte_array);
-
-        Digest(arr)
-        */
     }
 }
 
@@ -126,16 +116,22 @@ pub fn message_from_pi_i<E: PairingEngine>(pi_i: DecompProof<E>) -> Result<Vec<u
 
 #[cfg(test)]
 mod test {
+    use crate::{
+        modified_scrape::{
+            config::Config,
+            decomp::{Decomp, DecompProof},
+            poly::Polynomial,
+            srs::SRS,
+        },
+        Scalar,
+        signature::utils::tests::check_serialization,
+    };
 
     use ark_bls12_381::Bls12_381 as E;   // implements PairingEngine
-    use ark_ec::PairingEngine;
     use ark_poly::UVPolynomial;
-
-    use crate::signature::utils::tests::check_serialization;
-    use crate::modified_scrape::{decomp::{Decomp, DecompProof}, srs::SRS, poly::Polynomial, config::Config};
+    use ark_std::UniformRand;
 
     use rand::thread_rng;
-    use ark_std::UniformRand;
 
 
     #[test]
@@ -167,7 +163,7 @@ mod test {
         let mut dproof = Decomp::<E>::generate(rng, &conf, &poly.coeffs[0]).unwrap();
 
         // Malform the proof
-        dproof.proof.1 = <E as PairingEngine>::Fr::rand(rng);
+        dproof.proof.1 = Scalar::<E>::rand(rng);
 
         // Create a "bad" proof
         let dproof_bad = DecompProof { proof: dproof.proof, gs: dproof.gs };
