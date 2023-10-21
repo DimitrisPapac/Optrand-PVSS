@@ -1,35 +1,25 @@
 use crate::{
-    // Digest,
+    ComGroupP,
+    EncGroup,
     modified_scrape::{
 	config::Config,
         decomp::DecompProof,
         errors::PVSSError,
         participant::Participant,
-        poly::{ensure_degree, lagrange_interpolation_simple},   // poly::Polynomial, lagrange_interpolation
+        poly::{ensure_degree, lagrange_interpolation_simple},
         pvss::PVSSCore,
-        share::{PVSSAggregatedShare, PVSSShare},   // message_from_pi_i
+        share::{PVSSAggregatedShare, PVSSShare},
     },
-    // PublicKey,
-    // Signature,
+    Scalar,
     signature::scheme::BatchVerifiableSignatureScheme,
 };
 
-use ark_ec::{PairingEngine, ProjectiveCurve};   // msm::VariableBaseMSM, AffineCurve
+use ark_ec::{PairingEngine, ProjectiveCurve};
 use ark_ff::{One, Zero};
-// use ark_serialize::CanonicalSerialize;
 use ark_std::collections::BTreeMap;
 
 use rand::Rng;
-use std::{
-    // collections::hash_map::DefaultHasher,
-    // hash::{Hash, Hasher},
-    // iter::Zip,
-    ops::Neg,
-    // slice::Iter,
-};
-
-// use sha3::{Shake256, digest::{Update, ExtendableOutput, XofReader}};
-// use std::{fmt::Write, num::ParseIntError};
+use std::ops::Neg;
 
 
 /* A PVSSAggregator is responsible for receiving PVSS shares, verifying them, and
@@ -37,8 +27,7 @@ use std::{
 pub struct PVSSAggregator<E, SSIG>
 where
     E: PairingEngine,
-    //<E as PairingEngine>::G2Affine: AddAssign,
-    SSIG: BatchVerifiableSignatureScheme<PublicKey = E::G1Affine, Secret = E::Fr>,
+    SSIG: BatchVerifiableSignatureScheme<PublicKey = EncGroup<E>, Secret = Scalar<E>>,
 {
     pub config: Config<E>,                                     // the "global" configuration parameters
     pub scheme_sig: SSIG,                                      // scheme for encryption
@@ -50,8 +39,7 @@ where
 impl<E, SSIG> PVSSAggregator<E, SSIG>
 where
     E: PairingEngine,
-    //<E as PairingEngine>::G2Affine: AddAssign,
-    SSIG: BatchVerifiableSignatureScheme<PublicKey = E::G1Affine, Secret = E::Fr>,
+    SSIG: BatchVerifiableSignatureScheme<PublicKey = EncGroup<E>, Secret = Scalar<E>>,
 {
     // Associated function for creating a new PVSSAggregator instance.
     pub fn new(
@@ -78,36 +66,30 @@ where
         core: &PVSSCore<E>,
     ) -> Result<(), PVSSError<E>> {
 
-	    // Check that the sizes of commitments and encryptions are correct.
-	    if core.encs.len() != self.config.num_participants ||
+	// Check that the sizes of commitments and encryptions are correct.
+	if core.encs.len() != self.config.num_participants ||
            core.comms.len() != self.config.num_participants {
-	        return Err(PVSSError::MismatchedCommitsEncryptionsParticipantsError(core.encs.len(),
+	       return Err(PVSSError::MismatchedCommitsEncryptionsParticipantsError(core.encs.len(),
 			    core.comms.len(), self.config.num_participants));
-	    }
+	}
 
-	    // Coding check for the commitments to ensure that they represent a
-	    // commitment to a degree t polynomial.
-	    if ensure_degree::<E, _>(rng, &core.comms, self.config.degree as u64).is_err() {
+	// Coding check for the commitments to ensure that they represent a
+	// commitment to a degree t polynomial.
+	if ensure_degree::<E, _>(rng, &core.comms, self.config.degree as u64).is_err() {
             return Err(PVSSError::DualCodeError);
         }
 
-	    // The pairing condition for correctness of encryption is: e(pk_i, v_i) = e(enc_i, g_2).
-	    // NOTE: However, we do not have access to the sender's identity at this point (and by
-	    // extension, its public key). Hence, this check is carried out in share_verify.
+	// The pairing condition for correctness of encryption is: e(pk_i, v_i) = e(enc_i, g_2).
+	// NOTE: However, we do not have access to the sender's identity at this point (and by
+	// extension, its public key). Hence, this check is carried out in share_verify.
 
         // Check decomposition proof.
-	    let point = lagrange_interpolation_simple::<E>(
-            &core.comms, self.config.degree as u64).unwrap();   // E::G2Projective
+	let point = lagrange_interpolation_simple::<E>(
+                &core.comms, self.config.degree as u64).unwrap();
 
-	    if point != decomp_proof.gs {
+	if point != decomp_proof.gs {
 	        return Err(PVSSError::GSCheckError);
-	    }
-
-        // Verification is now performed from within SignedProof::verify()
-	    // Verify decomposition proof against our config.
-        // if decomp_proof.verify(&self.config).is_err() {
-	    //     return Err(PVSSError::DecompProofVerificationError);
-	    // }
+	}
 
         Ok(())
     }
@@ -146,13 +128,6 @@ where
         if share.signed_proof.verify(&self.config, &participant.public_key_ed).is_err() {
             return Err(PVSSError::InvalidSignedProofError);
         }
-
-        // The following check is now delegated to SignedProof::verify()
-        //let digest = share.signed_proof.decomp_proof.digest();
-
-        //if share.signed_proof.signature_on_decomp.verify(&digest, &participant.public_key_ed).is_err() {
-        //    return Err(PVSSError::EdDSAInvalidSignatureError);
-        //}
 
         Ok(())
     }
@@ -203,8 +178,8 @@ where
 
 	    let point = lagrange_interpolation_simple::<E>(&agg_share.pvss_core.comms, self.config.degree as u64).unwrap();   // E::G2Projective
 
-	    //let mut gs_total = E::G2Affine::zero();
-        let mut gs_total = E::G2Projective::zero();
+	    // let mut gs_total = ComGroup::<E>::zero();
+            let mut gs_total = ComGroupP::<E>::zero();
 
 	    // Contributions are essentially signed decomposition proofs.
 	    for (_participant_id, contribution) in agg_share.contributions.iter() {
@@ -253,7 +228,6 @@ where
 
         Ok(())
     }
-
 
     // Method for handling a received PVSSAggregatedShare instance.
     // The share is aggregated into the aggregator's currently aggregated transcript.
