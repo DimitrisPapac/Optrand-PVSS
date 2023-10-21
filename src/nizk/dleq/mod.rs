@@ -1,6 +1,8 @@
-use crate::nizk::{scheme::NIZKProof, 
-		  utils::{errors::NIZKError, hash::hash_to_field},
-		  dleq::srs::SRS};
+use crate::nizk::{
+    scheme::NIZKProof, 
+    utils::{errors::NIZKError, hash::hash_to_field},
+    dleq::srs::SRS
+};
 
 use ark_ec::{AffineCurve, ProjectiveCurve};
 use ark_ff::{PrimeField, UniformRand};
