@@ -32,10 +32,10 @@ where
     C1: AffineCurve + CanonicalSerialize + CanonicalDeserialize,
     C2: AffineCurve<ScalarField = C1::ScalarField> + CanonicalSerialize + CanonicalDeserialize,
 {
-    type SRS = SRS<C1, C2>;                                    		    // SRS is a pair of group generators (i.e., EC points)
-    type Witness = C1::ScalarField;                            		    // witnessess are scalars from the field underlying C1 and C2
-    type Challenge = C1::ScalarField;			      		            // challenges are scalars from the field underlying C1 and C2
-    type Statement = (C1, C2);                                 		    // public statements are pairs of elliptic curve points
+    type SRS = SRS<C1, C2>;                                    		// SRS is a pair of group generators (i.e., EC points)
+    type Witness = C1::ScalarField;                            		// witnessess are scalars from the field underlying C1 and C2
+    type Challenge = C1::ScalarField;			      		// challenges are scalars from the field underlying C1 and C2
+    type Statement = (C1, C2);                                 		// public statements are pairs of elliptic curve points
     type Proof = (Self::Statement, Self::Challenge, C1::ScalarField);   // proof format: ((G_1 commitment to nonce, G_2 commitment to nonce), challenge, response)
 
     // Creates a DLEQProof from a given SRS.
