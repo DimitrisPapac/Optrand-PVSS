@@ -5,7 +5,6 @@ pub mod modified_scrape;
 pub mod signature;
 pub mod nizk;
 
-use ark_poly::univariate::DensePolynomial;
 use ark_ec::PairingEngine;
 
 // EdDSA imports
@@ -18,13 +17,8 @@ use std::{array::TryFromSliceError, convert::{TryFrom, TryInto}, fmt};
 use ark_serialize::{CanonicalSerialize, CanonicalDeserialize, SerializationError, Read, Write};
 
 
-// Also declared in poly.rs:
-
-/// The scalar field of the pairing groups
+// The scalar field of the pairing groups
 pub type Scalar<E> = <E as PairingEngine>::Fr;
-
-/// A polynomial with the various coefficients in the Scalar Group
-pub type Polynomial<E> = DensePolynomial<Scalar<E>>;
 
 // The Share type
 pub type ComGroup<E> = <E as PairingEngine>::G2Affine;
@@ -95,7 +89,8 @@ impl CanonicalSerialize for Digest {
         for item in self.0.iter() {
             item.serialize(&mut writer)?;
         }
-	    Ok(())
+
+	Ok(())
     }
 
     fn serialized_size(&self) -> usize {
@@ -111,6 +106,7 @@ impl CanonicalDeserialize for Digest {
         let result = Digest( core::array::from_fn(|_| {
             u8::deserialize(&mut reader).unwrap()
         }) );
+
         Ok(result)
     }
 }
@@ -134,6 +130,7 @@ impl PublicKey {
         let array = bytes[..32]
             .try_into()
             .map_err(|_| base64::DecodeError::InvalidLength)?;
+
         Ok(Self(array))
     }
 }
@@ -144,11 +141,12 @@ impl CanonicalSerialize for PublicKey {
     &self,
     mut writer: W,
     ) -> Result<(), SerializationError> {
-	    // self.0.serialize_with_mode(&mut writer, compress)
-	    for item in self.0.iter() {
+	// self.0.serialize_with_mode(&mut writer, compress)
+        for item in self.0.iter() {
             item.serialize(&mut writer)?;
         }
-	    Ok(())
+
+	Ok(())
     }
 
     fn serialized_size(&self) -> usize {
@@ -164,6 +162,7 @@ impl CanonicalDeserialize for PublicKey {
         let result = PublicKey( core::array::from_fn(|_| {
             u8::deserialize(&mut reader).unwrap()
         }) );
+
         Ok(result)
     }
 }
@@ -195,6 +194,7 @@ impl SecretKey {
         let array = bytes[..64]
             .try_into()
             .map_err(|_| base64::DecodeError::InvalidLength)?;
+
         Ok(Self(array))
     }
 }
@@ -221,6 +221,7 @@ impl CanonicalSerialize for SecretKey {
 	for item in self.0.iter() {
             item.serialize(&mut writer)?;
         }
+
 	Ok(())
     }
 
@@ -237,6 +238,7 @@ impl CanonicalDeserialize for SecretKey {
         let result = SecretKey( core::array::from_fn(|_| {
             u8::deserialize(&mut reader).unwrap()
         }) );
+
         Ok(result)
     }
 }
@@ -343,6 +345,7 @@ impl CanonicalDeserialize for Signature {
         });
         let pt1 = result[..32].try_into().expect("Unexpected signature length");
         let pt2 = result[32..64].try_into().expect("Unexpected signature length");
+
         Ok(Signature {part1: pt1, part2: pt2} )
     }
 }
