@@ -1,5 +1,7 @@
 use crate::{
+    EncGroup,
     PublicKey,
+    Scalar,
     signature::scheme::BatchVerifiableSignatureScheme,
 };
 
@@ -23,7 +25,7 @@ pub enum ParticipantState {
 #[derive(Clone, CanonicalSerialize, CanonicalDeserialize)]
 pub struct Participant<
     E: PairingEngine,
-    SSIG: BatchVerifiableSignatureScheme<PublicKey = E::G1Affine, Secret = E::Fr>,   // G1 is the encryption group
+    SSIG: BatchVerifiableSignatureScheme<PublicKey = EncGroup<E>, Secret = Scalar<E>>,   // G1 is the encryption group
 > {
     pub pairing_type: PhantomData<E>,
     pub id: usize,                         // participant id
