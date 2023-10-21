@@ -1,4 +1,4 @@
-use crate::{modified_scrape::errors::PVSSError, Scalar};
+use crate::{ComGroup, EncGroup, modified_scrape::errors::PVSSError, Scalar};
 
 use ark_ec::PairingEngine;
 use ark_ff::Zero;
@@ -12,8 +12,8 @@ pub struct PVSSCore<E>
 where
     E: PairingEngine,
 {
-    pub encs: Vec<E::G1Affine>,    // vector of encryptions c
-    pub comms: Vec<E::G2Affine>,   // vector of commitments v
+    pub encs: Vec<EncGroup<E>>,    // vector of encryptions c
+    pub comms: Vec<ComGroup<E>>,   // vector of commitments v
 }
 
 impl<E> PVSSCore<E>
@@ -23,8 +23,8 @@ where
     // Create a new "empty" PVSS core, where all fields are set to "zero" values.
     pub fn empty(num_participants: usize) -> Self {
         PVSSCore {
-	        encs:  vec![E::G1Affine::zero(); num_participants],
-	        comms: vec![E::G2Affine::zero(); num_participants],
+	        encs:  vec![EncGroup::<E>::zero(); num_participants],
+	        comms: vec![ComGroup::<E>::zero(); num_participants],
         }
     }
 
@@ -82,7 +82,7 @@ where
 // PVSSShareSecrets models the secret parts underlying each share.
 pub struct PVSSShareSecrets<E: PairingEngine> {
     pub p_0: Scalar<E>,           // secret polynomial's free term s s.t.: p_i(0) = s
-    pub my_secret: E::G1Affine,   // partial secret
+    pub my_secret: EncGroup<E>,   // partial secret
 }
 
 
@@ -92,10 +92,16 @@ pub struct PVSSShareSecrets<E: PairingEngine> {
 mod test {
 
     use super::PVSSCore;
-    use crate::signature::utils::tests::check_serialization;
+    use crate::{
+        ComGroup,
+        ComGroupP,
+        EncGroup,
+        EncGroupP,
+        signature::utils::tests::check_serialization,
+    };
 
     use ark_ff::Zero;
-    use ark_ec::{PairingEngine, ProjectiveCurve};
+    use ark_ec::ProjectiveCurve;
     use ark_std::UniformRand;
     use ark_bls12_381::{
 	    Bls12_381 as E,   // type Bls12_381 = Bls12<Parameters> (Bls12 implements PairingEngine)
@@ -110,8 +116,8 @@ mod test {
 
         let core = PVSSCore::<E>::empty(size);
 
-        assert!(core.encs.iter().all(|&x| x == <E as PairingEngine>::G1Affine::zero()));
-        assert!(core.comms.iter().all(|&x| x == <E as PairingEngine>::G2Affine::zero()));
+        assert!(core.encs.iter().all(|&x| x == EncGroup::<E>::zero()));
+        assert!(core.comms.iter().all(|&x| x == ComGroup::<E>::zero()));
     }
 
     #[test]
@@ -129,11 +135,11 @@ mod test {
         let size: usize = 10;
         let rng = &mut thread_rng();
 
-        let encs1 = vec![<E as PairingEngine>::G1Projective::rand(rng).into_affine(); size];
-        let encs2 = vec![<E as PairingEngine>::G1Projective::rand(rng).into_affine(); size];
+        let encs1 = vec![EncGroupP::<E>::rand(rng).into_affine(); size];
+        let encs2 = vec![EncGroupP::<E>::rand(rng).into_affine(); size];
 
-        let comms1 = vec![<E as PairingEngine>::G2Projective::rand(rng).into_affine(); size];
-        let comms2 = vec![<E as PairingEngine>::G2Projective::rand(rng).into_affine(); size];
+        let comms1 = vec![ComGroupP::<E>::rand(rng).into_affine(); size];
+        let comms2 = vec![ComGroupP::<E>::rand(rng).into_affine(); size];
 
         let core1 = PVSSCore::<E> {encs: encs1, comms: comms1};
         let core2 = PVSSCore::<E> {encs: encs2, comms: comms2};
@@ -156,8 +162,8 @@ mod test {
         let rng = &mut thread_rng();
         let size: usize = 10;
 
-        let encs = vec![<E as PairingEngine>::G1Projective::rand(rng).into_affine(); size];
-        let comms = vec![<E as PairingEngine>::G2Projective::rand(rng).into_affine(); size];
+        let encs = vec![EncGroupP::<E>::rand(rng).into_affine(); size];
+        let comms = vec![ComGroupP::<E>::rand(rng).into_affine(); size];
 
 	let core1 = PVSSCore::<E> {
             encs:  encs.clone(),
@@ -171,8 +177,8 @@ mod test {
 
         let result = core1.aggregate(&core2).unwrap();
 
-        assert!(result.encs.iter().all(|&x| x == <E as PairingEngine>::G1Affine::zero()));
-        assert!(result.comms.iter().all(|&x| x == <E as PairingEngine>::G2Affine::zero()));
+        assert!(result.encs.iter().all(|&x| x == EncGroup::<E>::zero()));
+        assert!(result.comms.iter().all(|&x| x == ComGroup::<E>::zero()));
     }
 
     #[test]
@@ -182,12 +188,12 @@ mod test {
 
         let core1 = PVSSCore::<E> {
 	        encs:  vec![],
-	        comms: vec![<E as PairingEngine>::G2Affine::zero(); size],
+	        comms: vec![ComGroup::<E>::zero(); size],
         };
 
         let core2 = PVSSCore::<E> {
-	        encs:  vec![<E as PairingEngine>::G1Affine::zero(); size],
-	        comms: vec![<E as PairingEngine>::G2Affine::zero(); size],
+	        encs:  vec![EncGroup::<E>::zero(); size],
+	        comms: vec![ComGroup::<E>::zero(); size],
         };
 
         core1.aggregate(&core2).unwrap();
@@ -199,13 +205,13 @@ mod test {
         let size = 10;
 
         let core1 = PVSSCore::<E> {
-	        encs:  vec![<E as PairingEngine>::G1Affine::zero(); size],
+	        encs:  vec![EncGroup::<E>::zero(); size],
 	        comms: vec![],
         };
 
         let core2 = PVSSCore::<E> {
-	        encs:  vec![<E as PairingEngine>::G1Affine::zero(); size],
-	        comms: vec![<E as PairingEngine>::G2Affine::zero(); size],
+	        encs:  vec![EncGroup::<E>::zero(); size],
+	        comms: vec![ComGroup::<E>::zero(); size],
         };
 
         core1.aggregate(&core2).unwrap();
@@ -218,13 +224,13 @@ mod test {
         let size2 = 20;
 
         let core1 = PVSSCore::<E> {
-	        encs:  vec![<E as PairingEngine>::G1Affine::zero(); size1],
-	        comms: vec![<E as PairingEngine>::G2Affine::zero(); size1],
+	        encs:  vec![EncGroup::<E>::zero(); size1],
+	        comms: vec![ComGroup::<E>::zero(); size1],
         };
 
         let core2 = PVSSCore::<E> {
-	        encs:  vec![<E as PairingEngine>::G1Affine::zero(); size2],
-	        comms: vec![<E as PairingEngine>::G2Affine::zero(); size2],
+	        encs:  vec![EncGroup::<E>::zero(); size2],
+	        comms: vec![ComGroup::<E>::zero(); size2],
         };
 
         core1.aggregate(&core2).unwrap();
@@ -236,13 +242,13 @@ mod test {
         let size = 10;
 
         let core1 = PVSSCore::<E> {
-	        encs:  vec![<E as PairingEngine>::G1Affine::zero(); size],
-	        comms: vec![<E as PairingEngine>::G2Affine::zero(); size+1],   // mismatch with enc's length
+	        encs:  vec![EncGroup::<E>::zero(); size],
+	        comms: vec![ComGroup::<E>::zero(); size+1],   // mismatch with enc's length
         };
 
         let core2 = PVSSCore::<E> {
-	        encs:  vec![<E as PairingEngine>::G1Affine::zero(); size],
-	        comms: vec![<E as PairingEngine>::G2Affine::zero(); size],
+	        encs:  vec![EncGroup::<E>::zero(); size],
+	        comms: vec![ComGroup::<E>::zero(); size],
         };
 
         core1.aggregate(&core2).unwrap();
@@ -254,8 +260,8 @@ mod test {
         let size = 10;
 
 	    let core = PVSSCore::<E> {
-            encs:  vec![<E as PairingEngine>::G1Projective::rand(rng).into_affine(); size],
-            comms: vec![<E as PairingEngine>::G2Projective::rand(rng).into_affine(); size],
+            encs:  vec![EncGroupP::<E>::rand(rng).into_affine(); size],
+            comms: vec![ComGroupP::<E>::rand(rng).into_affine(); size],
         };
 
         check_serialization(core.clone());
