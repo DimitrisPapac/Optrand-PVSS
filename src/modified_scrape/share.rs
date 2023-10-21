@@ -145,20 +145,20 @@ impl<E: PairingEngine> PVSSAggregatedShare<E>
     // Method for aggregating a PVSS share to an aggregated PVSS share.
     // Returns the resulting aggregated PVSS share.
     pub fn aggregate_pvss_share(&self, other: &PVSSShare<E>) -> Result<Self, PVSSError<E>> {
-	    // Convert other from a PVSSShare instance into a PVSSAggregatedShare instance.
-	    let mut contribs = BTreeMap::new();
-	    contribs.insert(other.participant_id, SignedProof{ decomp_proof: other.signed_proof.decomp_proof,
-							   signature_on_decomp: other.signed_proof.signature_on_decomp });
+        // Convert other from a PVSSShare instance into a PVSSAggregatedShare instance.
+	let mut contribs = BTreeMap::new();
+	contribs.insert(other.participant_id, SignedProof{ decomp_proof: other.signed_proof.decomp_proof,
+						signature_on_decomp: other.signed_proof.signature_on_decomp });
 
-	    let other_agg_share = Self {
+	let other_agg_share = Self {
             num_participants: self.num_participants,
             degree: self.degree,
             pvss_core: other.pvss_core.clone(),
             contributions: contribs,
         };
 
-	    // Return the aggregate of the two aggregated PVSS shares.
-	    self.aggregate(&other_agg_share)
+	// Return the aggregate of the two aggregated PVSS shares.
+	self.aggregate(&other_agg_share)
     }
 }
 
@@ -170,6 +170,9 @@ impl<E: PairingEngine> PVSSAggregatedShare<E>
 mod test {
 
     use crate::{
+        ComGroup,
+        EncGroup,
+        EncGroupP,
         generate_production_keypair,
         modified_scrape::{
             config::Config,
@@ -191,12 +194,11 @@ mod test {
     use ark_bls12_381::{
 	    Bls12_381 as E,   // type Bls12_381 = Bls12<Parameters> (Bls12 implements PairingEngine)
     };
-    use ark_ec::{PairingEngine, AffineCurve, ProjectiveCurve};
+    use ark_ec::{AffineCurve, ProjectiveCurve};
     use ark_ff::{PrimeField, Zero};
     use ark_poly::{Polynomial, UVPolynomial};
-    use ark_std::{collections::BTreeMap, UniformRand};
-
     use ark_serialize::{CanonicalSerialize, CanonicalDeserialize};
+    use ark_std::{collections::BTreeMap, UniformRand};
     
     use rand::thread_rng;
     
@@ -242,8 +244,8 @@ mod test {
             num_participants: n,
             degree: t,
             pvss_core: PVSSCore {
-                encs:  vec![<E as PairingEngine>::G1Affine::zero(); n],
-                comms: vec![<E as PairingEngine>::G2Affine::zero(); n],
+                encs:  vec![EncGroup::<E>::zero(); n],
+                comms: vec![ComGroup::<E>::zero(); n],
             },
             contributions: BTreeMap::new(),
         };
@@ -269,7 +271,7 @@ mod test {
         let conf = Config { srs, degree: t, num_participants: n };
 
         // Schnorr SRS (over group G1)
-        let schnorr_srs = SCHSRS::<<E as PairingEngine>::G1Affine>::setup(rng).unwrap();
+        let schnorr_srs = SCHSRS::<EncGroup::<E>>::setup(rng).unwrap();
         let schnorr_sig = SchnorrSignature { srs: schnorr_srs };
 
         // Schnorr setup
@@ -298,17 +300,16 @@ mod test {
 	        .collect::<Vec<_>>();
 
         // Dummy vector of random Schnorr public keys.
-        let mut schnorr_pks = vec![<E as PairingEngine>::G1Projective::rand(rng); n];
+        let mut schnorr_pks = vec![EncGroupP::<E>::rand(rng); n];
         // For this test case, we only care about party "id"'s pk being genuine.
         schnorr_pks[id] = schnorr_pk.into_projective();
 
         // Compute encryptions for all nodes in {0, ..., n-1}.
         let encs: Vec<_> = (0..=(n-1))
 	        .map(|j| {
-                schnorr_pks[j]
-                    //.into_affine()
-                    .mul(evals[j].into_repr())
-                    .into_affine()
+                    schnorr_pks[j]
+                        .mul(evals[j].into_repr())
+                        .into_affine()
                     })
             .collect::<_>();
 
@@ -341,7 +342,7 @@ mod test {
         let conf = Config { srs, degree: t, num_participants: n };
 
         // Schnorr SRS (over group G1)
-        let schnorr_srs = SCHSRS::<<E as PairingEngine>::G1Affine>::setup(rng).unwrap();
+        let schnorr_srs = SCHSRS::<EncGroup::<E>>::setup(rng).unwrap();
         let schnorr_sig = SchnorrSignature { srs: schnorr_srs };
 
         // Schnorr setup
@@ -370,17 +371,16 @@ mod test {
 	        .collect::<Vec<_>>();
 
         // Dummy vector of Schnorr public keys.
-        let mut schnorr_pks = vec![<E as PairingEngine>::G1Projective::rand(rng).into_affine(); n];
+        let mut schnorr_pks = vec![EncGroupP::<E>::rand(rng).into_affine(); n];
         // We only care about party "id"'s pk being genuine.
         schnorr_pks[id] = schnorr_pk;
 
         // Compute encryptions for all nodes in {0, ..., n-1}.
         let encs: Vec<_> = (0..=(n-1))
 	        .map(|j| {
-                schnorr_pks[j]
-                    //.into_affine()
-                    .mul(evals[j].into_repr())
-                    .into_affine()
+                    schnorr_pks[j]
+                        .mul(evals[j].into_repr())
+                        .into_affine()
                     })
             .collect::<_>();
 
@@ -430,7 +430,7 @@ mod test {
         let conf = Config { srs, degree: t, num_participants: n };
 
         // Schnorr SRS (over group G1)
-        let schnorr_srs = SCHSRS::<<E as PairingEngine>::G1Affine>::setup(rng).unwrap();
+        let schnorr_srs = SCHSRS::<EncGroup::<E>>::setup(rng).unwrap();
         let schnorr_sig = SchnorrSignature { srs: schnorr_srs };
 
         // Sample a random degree t polynomial for party A.
@@ -494,7 +494,7 @@ mod test {
 	        .collect::<Vec<_>>();
 
         // Dummy vector of Schnorr public keys.
-        let mut schnorr_pks = vec![<E as PairingEngine>::G1Projective::rand(rng).into_affine(); n];
+        let mut schnorr_pks = vec![EncGroupP::<E>::rand(rng).into_affine(); n];
         // We only care about party A and B's public keys being genuine.
         schnorr_pks[id_a] = schnorr_pk_a;
         schnorr_pks[id_b] = schnorr_pk_b;
@@ -503,7 +503,6 @@ mod test {
         let encs_a: Vec<_> = (0..=(n-1))
 	        .map(|j| {
                     schnorr_pks[j]
-                        //.into_affine()
                         .mul(evals_a[j].into_repr())
                         .into_affine()
                     })
@@ -513,7 +512,6 @@ mod test {
         let encs_b: Vec<_> = (0..=(n-1))
 	        .map(|j| {
                 schnorr_pks[j]
-                    //.into_affine()
                     .mul(evals_b[j].into_repr())
                     .into_affine()
                     })
@@ -588,7 +586,7 @@ mod test {
         let conf = Config { srs, degree: t, num_participants: n };
 
         // Schnorr SRS (over group G1)
-        let schnorr_srs = SCHSRS::<<E as PairingEngine>::G1Affine>::setup(rng).unwrap();
+        let schnorr_srs = SCHSRS::<EncGroup::<E>>::setup(rng).unwrap();
         let schnorr_sig = SchnorrSignature { srs: schnorr_srs };
 
         // Schnorr setup
@@ -617,7 +615,7 @@ mod test {
 	        .collect::<Vec<_>>();
 
         // Dummy vector of random Schnorr public keys.
-        let mut schnorr_pks = vec![<E as PairingEngine>::G1Projective::rand(rng).into_affine(); n];
+        let mut schnorr_pks = vec![EncGroupP::<E>::rand(rng).into_affine(); n];
         // For this test case, we only care about party "id"'s pk being genuine.
         schnorr_pks[id] = schnorr_pk;
 
@@ -625,7 +623,6 @@ mod test {
         let encs: Vec<_> = (0..=(n-1))
 	        .map(|j| {
                 schnorr_pks[j]
-                    //.into_affine()
                     .mul(evals[j].into_repr())
                     .into_affine()
                     })
@@ -660,7 +657,7 @@ mod test {
         let conf = Config { srs, degree: t, num_participants: n };
 
         // Schnorr SRS (over group G1)
-        let schnorr_srs = SCHSRS::<<E as PairingEngine>::G1Affine>::setup(rng).unwrap();
+        let schnorr_srs = SCHSRS::<EncGroup::<E>>::setup(rng).unwrap();
         let schnorr_sig = SchnorrSignature { srs: schnorr_srs };
 
         // Sample a random degree t polynomial for party A.
@@ -724,7 +721,7 @@ mod test {
 	        .collect::<Vec<_>>();
 
         // Dummy vector of Schnorr public keys.
-        let mut schnorr_pks = vec![<E as PairingEngine>::G1Projective::rand(rng).into_affine(); n];
+        let mut schnorr_pks = vec![EncGroupP::<E>::rand(rng).into_affine(); n];
         // We only care about party A and B's public keys being genuine.
         schnorr_pks[id_a] = schnorr_pk_a;
         schnorr_pks[id_b] = schnorr_pk_b;
@@ -733,7 +730,6 @@ mod test {
         let encs_a: Vec<_> = (0..=(n-1))
 	        .map(|j| {
                     schnorr_pks[j]
-                        //.into_affine()
                         .mul(evals_a[j].into_repr())
                         .into_affine()
                     })
@@ -743,7 +739,6 @@ mod test {
         let encs_b: Vec<_> = (0..=(n-1))
 	        .map(|j| {
                 schnorr_pks[j]
-                    //.into_affine()
                     .mul(evals_b[j].into_repr())
                     .into_affine()
                     })
