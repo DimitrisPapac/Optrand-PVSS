@@ -1,4 +1,9 @@
 use crate::{
+    ComGroup,
+    ComGroupP,
+    EncGroup,
+    EncGroupP,
+    GT,
     modified_scrape::errors::PVSSError,
     Scalar,
 };
@@ -17,11 +22,10 @@ pub type Polynomial<E> = DensePolynomial<Scalar<E>>;
 // Function for ensuring that the commitment vector evals is
 // also a commitment to a polynomial of specified degree.
 pub fn ensure_degree<E, R>(rng: &mut R,
-                           evaluations: &Vec<E::G2Affine>,   // G2 is the group of commitments
+                           evaluations: &Vec<ComGroup<E>>,
                            degree: u64) -> Result<(), PVSSError<E>>
 where
 	E: PairingEngine,
-	//E::G2Projective: AddAssign,
 	R: Rng
 {
     let num = evaluations.len() as u64;
@@ -33,7 +37,7 @@ where
     // Sample a random polynomial of appropriate degree
     let poly = Polynomial::<E>::rand((num-degree-2) as usize, rng);
 
-    let mut sum = E::G2Projective::zero();
+    let mut sum = ComGroupP::<E>::zero();
 
     for i in 1..=num {
         let scalar_i = Scalar::<E>::from(i);
@@ -48,7 +52,7 @@ where
         sum.add_assign_mixed(&evaluations[(i-1) as usize].mul(cperp.into_repr()).into_affine());
     }
 
-    if sum != E::G2Projective::zero() {
+    if sum != ComGroupP::<E>::zero() {
 	    return Err(PVSSError::DualCodeError);
     }
 
@@ -57,18 +61,19 @@ where
 
 
 // Utility function for Lagrange interpolation from a given list of evaluations.
-pub fn lagrange_interpolation_simple<E>(evals: &Vec<E::G2Affine>,
-					degree: u64) -> Result<E::G2Affine, PVSSError<E>> 
+pub fn lagrange_interpolation_simple<E>(
+    evals: &Vec<ComGroup<E>>,
+    degree: u64
+) -> Result<ComGroup<E>, PVSSError<E>> 
 where
 	E: PairingEngine,
 	Scalar<E>: From<u64>,
-	//E::G2Projective: AddAssign,
 {
     if evals.len() < (degree + 1) as usize {
         return Err(PVSSError::InsufficientEvaluationsError);
     }
 
-    let mut sum = E::G2Projective::zero();
+    let mut sum = ComGroupP::<E>::zero();
     
     for j in 0..=degree {
         let x_j = Scalar::<E>::from(j + 1);
@@ -90,9 +95,11 @@ where
 
 // Utility function for Lagrange interpolation from a given list of points
 // and evaluations.
-pub fn lagrange_interpolation_g1<E>(evals: &Vec<E::G1Affine>,
-				 points: &Vec<Scalar<E>>,
-				 degree: u64) -> Result<E::G1Affine, PVSSError<E>> 
+pub fn lagrange_interpolation_g1<E>(
+    evals: &Vec<EncGroup<E>>,
+    points: &Vec<Scalar<E>>,
+    degree: u64
+) -> Result<EncGroup<E>, PVSSError<E>> 
 where
 	E: PairingEngine,
 	Scalar<E>: From<u64>
@@ -105,7 +112,7 @@ where
 	    return Err(PVSSError::DifferentPointsEvalsError);
     }
 
-    let mut sum = E::G1Projective::zero();
+    let mut sum = EncGroupP::<E>::zero();
 
     for j in 0..=degree {
         let x_j = points[j as usize];
@@ -127,9 +134,11 @@ where
 
 // Utility function for Lagrange interpolation from a given list of points
 // and evaluations.
-pub fn lagrange_interpolation_g2<E>(evals: &Vec<E::G2Affine>,
-				 points: &Vec<Scalar<E>>,
-				 degree: u64) -> Result<E::G2Affine, PVSSError<E>> 
+pub fn lagrange_interpolation_g2<E>(
+    evals: &Vec<ComGroup<E>>,
+    points: &Vec<Scalar<E>>,
+    degree: u64
+) -> Result<ComGroup<E>, PVSSError<E>> 
 where
 	E: PairingEngine,
 	Scalar<E>: From<u64>
@@ -142,7 +151,7 @@ where
 	    return Err(PVSSError::DifferentPointsEvalsError);
     }
 
-    let mut sum = E::G2Projective::zero();
+    let mut sum = ComGroupP::<E>::zero();
 
     for j in 0..=degree {
         let x_j = points[j as usize];
@@ -164,9 +173,11 @@ where
 
 // Utility function for Lagrange interpolation from a given list of points
 // and evaluations.
-pub fn lagrange_interpolation_gt<E>(evals: &Vec<<E as PairingEngine>::Fqk>,
+pub fn lagrange_interpolation_gt<E>(
+    evals: &Vec<GT<E>>,
     points: &Vec<u64>,
-    degree: u64) -> Result<<E as PairingEngine>::Fqk, PVSSError<E>> 
+    degree: u64
+) -> Result<GT<E>, PVSSError<E>> 
 where
     E: PairingEngine,
     Scalar<E>: From<u64>,
@@ -179,14 +190,14 @@ where
         return Err(PVSSError::DifferentPointsEvalsError);
     }
 
-    let mut result = E::Fqk::one();
+    let mut result = GT::<E>::one();
 
     for j in 0..=degree {
-        let x_j = <<E as PairingEngine>::Fqk as Field>::BasePrimeField::from(points[j as usize]);
-        let mut prod = <<E as PairingEngine>::Fqk as Field>::BasePrimeField::one();
+        let x_j = <GT::<E> as Field>::BasePrimeField::from(points[j as usize]);
+        let mut prod = <GT::<E> as Field>::BasePrimeField::one();
         for k in 0..=degree {
             if j != k {
-                let x_k = <<E as PairingEngine>::Fqk as Field>::BasePrimeField::from(points[k as usize]);
+                let x_k = <GT::<E> as Field>::BasePrimeField::from(points[k as usize]);
                 prod *= x_k * (x_k - x_j).inverse().unwrap();
             }
         }
@@ -206,6 +217,9 @@ where
 #[cfg(test)]
 mod test {
     use crate::{
+        ComGroup,
+        ComGroupP,
+        EncGroup,
         modified_scrape::{
             poly::{
                 Polynomial,
@@ -260,7 +274,7 @@ mod test {
         let deg = rng.gen_range(MIN_DEGREE, MAX_DEGREE) as u64;
 
         // we use random group elemements from G_2 since it doesn't matter here.
-        let evals = vec![<E as PairingEngine>::G2Projective::rand(rng).into_affine(); (deg+4) as usize];
+        let evals = vec![ComGroupP::<E>::rand(rng).into_affine(); (deg+4) as usize];
         assert_eq!(ensure_degree::<E, _>(rng, &evals, deg).unwrap(), ());
     }
 
@@ -272,7 +286,7 @@ mod test {
         let deg = rng.gen_range(MIN_DEGREE, MAX_DEGREE) as u64;
 
         // we use random group elemements from G_2 since it doesn't matter here.
-        let evals = vec![<E as PairingEngine>::G2Projective::rand(rng).into_affine(); (deg-1) as usize];
+        let evals = vec![ComGroupP::<E>::rand(rng).into_affine(); (deg-1) as usize];
         ensure_degree::<E, _>(rng, &evals, deg).unwrap();
     }
 
@@ -284,7 +298,7 @@ mod test {
         let deg = rng.gen_range(MIN_DEGREE, MAX_DEGREE) as u64;
 
         // we use random group elemements from G_2 since it doesn't matter here.
-        let evals = vec![<E as PairingEngine>::G2Projective::rand(rng).into_affine(); (deg-1) as usize];
+        let evals = vec![ComGroupP::<E>::rand(rng).into_affine(); (deg-1) as usize];
 
         _ = lagrange_interpolation_simple::<E>(&evals, deg).unwrap();
     }
@@ -296,7 +310,7 @@ mod test {
         let deg = rng.gen_range(MIN_DEGREE, MAX_DEGREE) as u64;
 
 	let srs = SRS::<E>::setup(rng).unwrap();   // setup PVSS scheme's SRS
-	let generator = srs.g2;   // affine
+	let generator = srs.g2;
 
 	let p = Polynomial::<E>::rand(deg as usize, rng);
 	let secret = p.coeffs[0];
@@ -306,7 +320,7 @@ mod test {
 		.map(|x| generator.mul(p.evaluate(&Scalar::<E>::from(x as u64)).into_repr()).into_affine())
 		.collect::<Vec<_>>();
 
-	let reconstructed_secret = lagrange_interpolation_simple::<E>(&evals, deg).unwrap();   // G2Projective
+	let reconstructed_secret = lagrange_interpolation_simple::<E>(&evals, deg).unwrap();
 
 	assert_eq!(reconstructed_secret, shared_secret);
     }
@@ -319,7 +333,7 @@ mod test {
         let deg = rng.gen_range(MIN_DEGREE, MAX_DEGREE) as u64;
 
 	// we use random elements since it doesn't matter here
-        let evals = vec![<E as PairingEngine>::G2Projective::rand(rng).into_affine(); (deg-1) as usize];
+        let evals = vec![ComGroupP::<E>::rand(rng).into_affine(); (deg-1) as usize];
 	let points = vec![Scalar::<E>::rand(rng); (deg-1) as usize];
 
 	_ = lagrange_interpolation_g2::<E>(&evals, &points, deg).unwrap();
@@ -333,7 +347,7 @@ mod test {
         let deg = rng.gen_range(MIN_DEGREE, MAX_DEGREE) as u64;
 
 	// we use random elements since it doesn't matter here
-        let evals = vec![<E as PairingEngine>::G2Projective::rand(rng).into_affine(); (deg+1) as usize];
+        let evals = vec![ComGroupP::<E>::rand(rng).into_affine(); (deg+1) as usize];
 	let points = vec![Scalar::<E>::rand(rng); (deg+2) as usize];
 
 	_ = lagrange_interpolation_g2::<E>(&evals, &points, deg).unwrap();
@@ -375,24 +389,24 @@ mod test {
         let g1 = srs.g1;
 	    let epoch_generator = srs.g2;   // assume that g2 is the epoch generator in G2
 
-        // let x = <E as PairingEngine>::Fqk::rand(rng);
+        // let x = GT::<E>::rand(rng);
         
         // random points in G1 representing the decrypted shares
         let sks: Vec<G1Affine>= (1..=(deg+1))
-                        .map(|_| g1.mul(<E as PairingEngine>::Fr::rand(rng).into_repr()).into_affine())
+                        .map(|_| g1.mul(Scalar::<E>::rand(rng).into_repr()).into_affine())
                         .collect();
 
         // sigma_{j, 2} := e(SK_j, g_r)
         let evals = (0..sks.len())
-                             .map(|i| E::pairing::<<E as PairingEngine>::G1Affine, <E as PairingEngine>::G2Affine>(sks[i].into(), epoch_generator.into()))
+                             .map(|i| E::pairing::<EncGroup::<E>, ComGroup::<E>>(sks[i].into(), epoch_generator.into()))
                              .collect::<Vec<_>>();
 
         // Assume for simplicity that the shares come from the first t+1 parties
         let points = (0..=deg)
-                                                    .map(|j| (j + 1) as u64)
-                                                    .collect::<Vec<_>>();
+                         .map(|j| (j + 1) as u64)
+                         .collect::<Vec<_>>();
 
-	    let _reconstructed_secret = lagrange_interpolation_gt::<E>(&evals, &points, deg).unwrap();
+        let _reconstructed_secret = lagrange_interpolation_gt::<E>(&evals, &points, deg).unwrap();
 
         // println!("Reconstructed secret: {:?}", reconstructed_secret);
 
