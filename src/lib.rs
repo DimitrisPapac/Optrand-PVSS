@@ -17,7 +17,6 @@ use rand::{CryptoRng, RngCore, rngs::OsRng};
 use std::{array::TryFromSliceError, convert::{TryFrom, TryInto}, fmt};
 use ark_serialize::{CanonicalSerialize, CanonicalDeserialize, SerializationError, Read, Write};
 
-///////////////////////////////////////////////////////////////////
 
 // Also declared in poly.rs:
 
@@ -27,7 +26,22 @@ pub type Scalar<E> = <E as PairingEngine>::Fr;
 /// A polynomial with the various coefficients in the Scalar Group
 pub type Polynomial<E> = DensePolynomial<Scalar<E>>;
 
-//////////////////////////////////////////////////////////////////
+// The Share type
+pub type ComGroup<E> = <E as PairingEngine>::G2Affine;
+pub type ComGroupP<E> = <E as PairingEngine>::G2Projective;
+
+pub type SecKey<E> = Scalar<E>;
+pub type PubKey<E> = <E as PairingEngine>::G1Affine;
+pub type PubKeyP<E> = <E as PairingEngine>::G1Projective;
+
+// The Encryption group is the same as the public key group.
+// Which is G1 for type 3 pairings.
+pub type EncGroup<E> = PubKey<E>;
+pub type EncGroupP<E> = PubKeyP<E>;
+
+// The target group GT of the pairing
+pub type GT<E> = <E as PairingEngine>::Fqk;
+
 
 // EdDSA definitions
 
@@ -332,26 +346,3 @@ impl CanonicalDeserialize for Signature {
         Ok(Signature {part1: pt1, part2: pt2} )
     }
 }
-
-
-////////////////////////////////////////////////////////////////////////////////////////
-
-
-// The target group GT of the pairing
-pub type GT<E> = <E as PairingEngine>::Fqk;
-
-// The secret that we will be encoding
-// Also the beacon
-pub type Secret<E> = GT<E>;
-
-// The Share type
-// pub type Share<E> = Encryptions<E>;
-pub type Commitment<E> = <E as PairingEngine>::G1Affine;
-
-pub type CommitmentP<E> = <E as PairingEngine>::G1Projective;
-//pub type SecretKey<E> = Scalar<E>;
-//pub type PublicKey<E> = <E as PairingEngine>::G2Projective;
-
-// The Encryption group is the same as the public key group
-// Which is G1 for type 3 pairings
-//pub type Encryptions<E> = PublicKey<E>;
