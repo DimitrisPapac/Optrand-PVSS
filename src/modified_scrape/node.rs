@@ -1,4 +1,5 @@
 use crate::{
+    EncGroup,
     modified_scrape::{
         aggregator::PVSSAggregator,
         config::Config,
@@ -31,8 +32,7 @@ use rand::Rng;
 pub struct Node<E, SSIG>
 where
     E: PairingEngine,
-    //<E as PairingEngine>::G2Affine: AddAssign,
-    SSIG: BatchVerifiableSignatureScheme<PublicKey = E::G1Affine, Secret = E::Fr>,
+    SSIG: BatchVerifiableSignatureScheme<PublicKey = EncGroup<E>, Secret = Scalar<E>>,
 {
     pub aggregator: PVSSAggregator<E, SSIG>,    // the aggregator aspect of the node
     pub dealer: Dealer<E, SSIG>,                // the dealer aspect of the node
@@ -41,8 +41,7 @@ where
 impl<E, SSIG> Node<E, SSIG>
 where
     E: PairingEngine,
-    //<E as PairingEngine>::G2Affine: AddAssign,
-    SSIG: BatchVerifiableSignatureScheme<PublicKey = E::G1Affine, Secret = E::Fr>,
+    SSIG: BatchVerifiableSignatureScheme<PublicKey = EncGroup<E>, Secret = Scalar<E>>,
 {
     // Function for initializing a new node in the PVSS sharing protocol.
     pub fn new(
@@ -141,19 +140,19 @@ where
         // Sign the decomposition proof using EdDSA
 	let signature_on_decomp = Signature::new(&digest, &self.dealer.private_key_ed);
 
-    let signed_proof = SignedProof::<E> {
-        decomp_proof,
-        signature_on_decomp,
-    };
+        let signed_proof = SignedProof::<E> {
+            decomp_proof,
+            signature_on_decomp,
+        };
 
-    // println!("{:?}", signed_proof.decomp_proof);
+        // println!("{:?}", signed_proof.decomp_proof);
 
 	// Create the PVSS share.
 	let share = PVSSShare {
             participant_id: self.dealer.participant.id,
             pvss_core,
 	        signed_proof,
-    };
+        };
 
 	// Set dealer instance's state to DealerShared.
         // self.dealer.participant.state = ParticipantState::DealerShared;
@@ -170,6 +169,7 @@ where
 #[cfg(test)]
 mod test {
     use crate::{
+        EncGroup,
         modified_scrape::{
             aggregator::PVSSAggregator,
             config::Config,
@@ -189,7 +189,6 @@ mod test {
     use ark_bls12_381::{
 	    Bls12_381,         // type Bls12_381 = Bls12<Parameters> (Bls12 implements PairingEngine)
     };
-    use ark_ec::PairingEngine;
     use ark_std::collections::BTreeMap;
     use rand::thread_rng;
 
@@ -199,7 +198,7 @@ mod test {
     fn test_one() {
         let rng = &mut thread_rng();
         let srs = SRS::<Bls12_381>::setup(rng).unwrap();
-        let schnorr_srs = SCHSRS::<<Bls12_381 as PairingEngine>::G1Affine>::setup(rng).unwrap();
+        let schnorr_srs = SCHSRS::<EncGroup::<Bls12_381>>::setup(rng).unwrap();
         let schnorr_sig = SchnorrSignature { srs: schnorr_srs };
 
         // generate key pairs
@@ -207,8 +206,7 @@ mod test {
         let eddsa_keypair = generate_production_keypair();                     // (pk, sk)
 
         // create the dealer instance
-        let dealer: Dealer<Bls12_381,   //Bls12<ark_bls12_381::Parameters>,
-			   SchnorrSignature<<Bls12_381 as PairingEngine>::G1Affine>> = Dealer {
+        let dealer: Dealer<Bls12_381, SchnorrSignature<EncGroup<Bls12_381>>> = Dealer {
             private_key_sig: dealer_keypair_sig.0,
     	    private_key_ed: eddsa_keypair.1,
             participant: Participant {
@@ -232,7 +230,7 @@ mod test {
 
         // create the aggregator instance
         let aggregator: PVSSAggregator<Bls12_381,
-			   SchnorrSignature<<Bls12_381 as PairingEngine>::G1Affine>> = PVSSAggregator {
+			   SchnorrSignature<EncGroup<Bls12_381>>> = PVSSAggregator {
                 config: config.clone(),
                 scheme_sig: schnorr_sig.clone(),
                 participants: participants.clone().into_iter().enumerate().collect(),
@@ -255,7 +253,7 @@ mod test {
 
         // Global settings
         let srs = SRS::<Bls12_381>::setup(rng).unwrap();
-        let schnorr_srs = SCHSRS::<<Bls12_381 as PairingEngine>::G1Affine>::setup(rng).unwrap();
+        let schnorr_srs = SCHSRS::<EncGroup::<Bls12_381>>::setup(rng).unwrap();
         let schnorr_sig = SchnorrSignature { srs: schnorr_srs };
 
         // Set global configuration parameters
@@ -270,8 +268,7 @@ mod test {
         let eddsa_keypair_a = generate_production_keypair();                     // (pk, sk)
 
         // Create the dealer instance for party A
-        let dealer_a: Dealer<Bls12_381,   //Bls12<ark_bls12_381::Parameters>,
-			   SchnorrSignature<<Bls12_381 as PairingEngine>::G1Affine>> = Dealer {
+        let dealer_a: Dealer<Bls12_381, SchnorrSignature<EncGroup<Bls12_381>>> = Dealer {
             private_key_sig: dealer_keypair_sig_a.0,
     	    private_key_ed: eddsa_keypair_a.1,
             participant: Participant {
@@ -287,8 +284,7 @@ mod test {
         let eddsa_keypair_b = generate_production_keypair();                     // (pk, sk)
 
         // Create the dealer instance for party B
-        let dealer_b: Dealer<Bls12_381,   //Bls12<ark_bls12_381::Parameters>,
-			   SchnorrSignature<<Bls12_381 as PairingEngine>::G1Affine>> = Dealer {
+        let dealer_b: Dealer<Bls12_381, SchnorrSignature<EncGroup<Bls12_381>>> = Dealer {
             private_key_sig: dealer_keypair_sig_b.0,
     	    private_key_ed: eddsa_keypair_b.1,
             participant: Participant {
@@ -304,8 +300,7 @@ mod test {
         let eddsa_keypair_c = generate_production_keypair();                     // (pk, sk)
 
         // Create the dealer instance for party C
-        let dealer_c: Dealer<Bls12_381,   //Bls12<ark_bls12_381::Parameters>,
-			   SchnorrSignature<<Bls12_381 as PairingEngine>::G1Affine>> = Dealer {
+        let dealer_c: Dealer<Bls12_381, SchnorrSignature<EncGroup<Bls12_381>>> = Dealer {
             private_key_sig: dealer_keypair_sig_c.0,
     	    private_key_ed: eddsa_keypair_c.1,
             participant: Participant {
@@ -321,8 +316,7 @@ mod test {
         let eddsa_keypair_d = generate_production_keypair();                     // (pk, sk)
 
         // Create the dealer instance for party D
-        let dealer_d: Dealer<Bls12_381,   //Bls12<ark_bls12_381::Parameters>,
-			   SchnorrSignature<<Bls12_381 as PairingEngine>::G1Affine>> = Dealer {
+        let dealer_d: Dealer<Bls12_381, SchnorrSignature<EncGroup<Bls12_381>>> = Dealer {
             private_key_sig: dealer_keypair_sig_d.0,
     	    private_key_ed: eddsa_keypair_d.1,
             participant: Participant {
@@ -386,24 +380,24 @@ mod test {
         let mut pvss_d = node_d.share(rng).unwrap();
 
         // Party A aggregates its own share
-        node_a.aggregator.receive_share(rng, &mut pvss_a).unwrap();   // works
+        node_a.aggregator.receive_share(rng, &mut pvss_a).unwrap();
         // Party A gets party B's share through communication
-        node_a.aggregator.receive_share(rng, &mut pvss_b).unwrap();   // works
+        node_a.aggregator.receive_share(rng, &mut pvss_b).unwrap();
 
         // Party B aggregates its own share
-        node_b.aggregator.receive_share(rng, &mut pvss_b).unwrap();   // works
+        node_b.aggregator.receive_share(rng, &mut pvss_b).unwrap();
         // Party B gets party A's share through communication
-        node_b.aggregator.receive_share(rng, &mut pvss_a).unwrap();   // works
+        node_b.aggregator.receive_share(rng, &mut pvss_a).unwrap();
 
         // Party C aggregates its own share
-        node_c.aggregator.receive_share(rng, &mut pvss_c).unwrap();   // works
+        node_c.aggregator.receive_share(rng, &mut pvss_c).unwrap();
         // Party C gets party D's share through communication
-        node_c.aggregator.receive_share(rng, &mut pvss_d).unwrap();   // works
+        node_c.aggregator.receive_share(rng, &mut pvss_d).unwrap();
 
         // Party D aggregates its own share
-        node_d.aggregator.receive_share(rng, &mut pvss_d).unwrap();   // works
+        node_d.aggregator.receive_share(rng, &mut pvss_d).unwrap();
         // Party D gets party C's share through communication
-        node_d.aggregator.receive_share(rng, &mut pvss_c).unwrap();   // works
+        node_d.aggregator.receive_share(rng, &mut pvss_c).unwrap();
 
         // Parties A and B should at this point hold the same aggregated transcript
         assert_eq!(node_a.aggregator.aggregated_tx, node_b.aggregator.aggregated_tx);
@@ -428,17 +422,6 @@ mod test {
         assert_eq!(node_a.aggregator.aggregated_tx, node_b.aggregator.aggregated_tx);
         assert_eq!(node_b.aggregator.aggregated_tx, node_c.aggregator.aggregated_tx);
         assert_eq!(node_c.aggregator.aggregated_tx, node_d.aggregator.aggregated_tx);
-
-        /*
-        println!("The aggregated tx for A is:\n\n{:?}", node_a.aggregator.aggregated_tx);
-        println!("\n\n");
-        println!("The aggregated tx for B is:\n\n{:?}", node_b.aggregator.aggregated_tx);
-        println!("\n\n");
-        println!("The aggregated tx for C is:\n\n{:?}", node_c.aggregator.aggregated_tx);
-        println!("\n\n");
-        println!("The aggregated tx for D is:\n\n{:?}", node_d.aggregator.aggregated_tx);
-        println!("\n\n");
-        */
     }
 
 
@@ -449,7 +432,7 @@ mod test {
 
         // Global settings
         let srs = SRS::<Bls12_381>::setup(rng).unwrap();
-        let schnorr_srs = SCHSRS::<<Bls12_381 as PairingEngine>::G1Affine>::setup(rng).unwrap();
+        let schnorr_srs = SCHSRS::<EncGroup::<Bls12_381>>::setup(rng).unwrap();
         let schnorr_sig = SchnorrSignature { srs: schnorr_srs };
 
         // Set global configuration parameters
@@ -464,8 +447,7 @@ mod test {
         let eddsa_keypair_a = generate_production_keypair();                     // (pk, sk)
 
         // Create the dealer instance for party A
-        let dealer_a: Dealer<Bls12_381,   //Bls12<ark_bls12_381::Parameters>,
-			   SchnorrSignature<<Bls12_381 as PairingEngine>::G1Affine>> = Dealer {
+        let dealer_a: Dealer<Bls12_381, SchnorrSignature<EncGroup<Bls12_381>>> = Dealer {
             private_key_sig: dealer_keypair_sig_a.0,
     	    private_key_ed: eddsa_keypair_a.1,
             participant: Participant {
@@ -481,8 +463,7 @@ mod test {
         let eddsa_keypair_b = generate_production_keypair();                     // (pk, sk)
 
         // Create the dealer instance for party B
-        let dealer_b: Dealer<Bls12_381,   //Bls12<ark_bls12_381::Parameters>,
-			   SchnorrSignature<<Bls12_381 as PairingEngine>::G1Affine>> = Dealer {
+        let dealer_b: Dealer<Bls12_381, SchnorrSignature<EncGroup<Bls12_381>>> = Dealer {
             private_key_sig: dealer_keypair_sig_b.0,
     	    private_key_ed: eddsa_keypair_b.1,
             participant: Participant {
@@ -498,8 +479,7 @@ mod test {
         let eddsa_keypair_c = generate_production_keypair();                     // (pk, sk)
 
         // Create the dealer instance for party C
-        let dealer_c: Dealer<Bls12_381,   //Bls12<ark_bls12_381::Parameters>,
-			   SchnorrSignature<<Bls12_381 as PairingEngine>::G1Affine>> = Dealer {
+        let dealer_c: Dealer<Bls12_381, SchnorrSignature<EncGroup<Bls12_381>>> = Dealer {
             private_key_sig: dealer_keypair_sig_c.0,
     	    private_key_ed: eddsa_keypair_c.1,
             participant: Participant {
@@ -515,8 +495,7 @@ mod test {
         let eddsa_keypair_d = generate_production_keypair();                     // (pk, sk)
 
         // Create the dealer instance for party D
-        let dealer_d: Dealer<Bls12_381,   //Bls12<ark_bls12_381::Parameters>,
-			   SchnorrSignature<<Bls12_381 as PairingEngine>::G1Affine>> = Dealer {
+        let dealer_d: Dealer<Bls12_381, SchnorrSignature<EncGroup<Bls12_381>>> = Dealer {
             private_key_sig: dealer_keypair_sig_d.0,
     	    private_key_ed: eddsa_keypair_d.1,
             participant: Participant {
@@ -598,63 +577,4 @@ mod test {
 
         // println!("Node's aggregated_tx is now:\n\n{:?}", node_a.aggregator.aggregated_tx);
     }
-
-    /*
-    use sha3::{Shake256, digest::{Update, ExtendableOutput, XofReader}};
-    #[test]
-    fn foo_test() {
-        // Hashing to lambda bits
-        
-        const LAMBDA: usize = 256;
-
-        let mut hasher = Shake256::default();
-
-        let mut obj_bytes = vec![];
-        gt.serialize(&mut obj_bytes)?;
-        hasher.update(&obj_bytes);
-
-        let mut reader = hasher.finalize_xof();
-
-        let mut arr = [0_u8; LAMBDA>>3];
-        reader.read(&mut arr);
-        
-        //
-        let v: Vec<u8> = vec![10, 20, 30];
-        println!("{:?}", v);
-        let w: &[u8] = &v;
-        println!("{:?}", w);
-
-        // Beacon epoch r:
-        let sigma_i = (epoch_generator.mul(ai.into_repr()).into_affine(),
-            <Bls12_381 as PairingEngine>::pairing(dec.into(), epoch_generator.into()));
-        
-        let rng = &mut thread_rng();
-        let srs = SRS::<G1Affine, G2Affine> {
-            g_public_key: epoch_generator,
-            h_public_key: node.aggregator.config.srs.g2,
-        };   // Everyone should have the same setup at this point!
-        let dleq = DLEQProof { srs };
-        //let pair = dleq.generate_pair(rng).unwrap();
-    
-        //let (wit, stmnt) = dleq.from_witness(&ai);
-        let dleq_proof_i = dleq.prove(rng, &ai).unwrap();   // (Self::Statement, Self::Challenge, C1::ScalarField)
-
-        // multicast (sigma_i, dleq_proof_i)
-
-        // upon reception:
-
-        let srs = SRS::<G1Affine, G2Affine> {
-            g_public_key: epoch_generator,
-            h_public_key: node.aggregator.config.srs.g2,
-        };   // Everyone should have the same setup at this point!
-        let dleq = DLEQProof::from_srs(srs);
-
-        dleq_proof
-            .verify(, &dleq_proof_j);
-
-        //dleq_proof
-        //    .verify(&pair.1, &proof)
-        //    .unwrap();
-    }
-    */
 }
