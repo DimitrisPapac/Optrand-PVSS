@@ -1,6 +1,8 @@
 use crate::{
+    EncGroup,
     modified_scrape::participant::Participant,
     signature::scheme::BatchVerifiableSignatureScheme,
+    Scalar,
     SecretKey,
 };
 
@@ -11,7 +13,7 @@ use ark_ec::PairingEngine;
 #[derive(Clone)]
 pub struct Dealer<
     E: PairingEngine,
-    SSIG: BatchVerifiableSignatureScheme<PublicKey = E::G1Affine, Secret = E::Fr>,   // G1 is the encryption group
+    SSIG: BatchVerifiableSignatureScheme<PublicKey = EncGroup<E>, Secret = Scalar<E>>,
 > {
     pub private_key_sig: SSIG::Secret,       // Dealer's secret (decryption) key
     pub private_key_ed: SecretKey,           // EdDSA secret (signing) key
