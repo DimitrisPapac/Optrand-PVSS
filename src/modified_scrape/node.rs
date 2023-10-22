@@ -138,7 +138,7 @@ where
         // println!("Received digest: {:?}", digest.0);   // Matches computation inside decomp.rs
 
         // Sign the decomposition proof using EdDSA
-	let signature_on_decomp = Signature::new(&digest, &self.dealer.private_key_ed);
+	    let signature_on_decomp = Signature::new(&digest, &self.dealer.private_key_ed);
 
         let signed_proof = SignedProof::<E> {
             decomp_proof,
@@ -147,14 +147,14 @@ where
 
         // println!("{:?}", signed_proof.decomp_proof);
 
-	// Create the PVSS share.
-	let share = PVSSShare {
+	    // Create the PVSS share.
+	    let share = PVSSShare {
             participant_id: self.dealer.participant.id,
             pvss_core,
 	        signed_proof,
         };
 
-	// Set dealer instance's state to DealerShared.
+	    // Set dealer instance's state to DealerShared.
         // self.dealer.participant.state = ParticipantState::DealerShared;
 
         Ok(share)
@@ -186,9 +186,7 @@ mod test {
 	generate_production_keypair,
     };
 
-    use ark_bls12_381::{
-	    Bls12_381,         // type Bls12_381 = Bls12<Parameters> (Bls12 implements PairingEngine)
-    };
+    use ark_bls12_381::Bls12_381;   // type Bls12_381 = Bls12<Parameters> (Bls12 implements PairingEngine)
     use ark_std::collections::BTreeMap;
     use rand::thread_rng;
 
@@ -426,7 +424,6 @@ mod test {
 
 
     #[test]
-    #[should_panic]
     fn test_double_aggregation() {
         let rng = &mut thread_rng();
 
@@ -529,7 +526,7 @@ mod test {
         ).unwrap();
         
         // Create the node instance for party B
-        let mut _node_b = Node::new(
+        let mut node_b = Node::new(
             config.clone(),
             schnorr_sig.clone(),
             dealer_b,
@@ -570,10 +567,18 @@ mod test {
         node_a.aggregator.receive_share(rng, &mut dup_pvss_a).unwrap();
         let res2 = node_a.aggregator.aggregated_tx.clone();
 
-        // Be wary, as in this scenario, the pvss_core "desyncs" with the gs values found within
+        // Originally, as in this scenario, the pvss_core would "desync" with the gs values found within
         // the aggregated_tx's contributions map.
-        // This can be addressed by introducing weights as Meiklejohn et al. do.
-        assert_eq!(res1, res2);
+        // Introducing weights remedies this issue.
+        assert_eq!(res1.num_participants, res2.num_participants);
+        assert_eq!(res1.degree, res2.degree);
+        assert!(res1.pvss_core != res2.pvss_core);
+        assert!(res1.contributions.get(&0).unwrap().0 == res2.contributions.get(&0).unwrap().0);
+        assert!(res1.contributions.get(&0).unwrap().1 == 1);
+        assert!(res2.contributions.get(&0).unwrap().1 == 2);
+
+        // Also, if node B were to receive this aggregated share, aggregation_verify() wouldn't panic.
+        node_b.aggregator.receive_aggregated_share(rng, &node_a.aggregator.aggregated_tx.clone()).unwrap();
 
         // println!("Node's aggregated_tx is now:\n\n{:?}", node_a.aggregator.aggregated_tx);
     }
