@@ -62,8 +62,8 @@ where
 {
     pub num_participants: usize,
     pub degree: usize,
-    pub pvss_core: PVSSCore<E>,                           // "core" of the aggregated PVSS sharing
-    pub contributions: BTreeMap<usize, SignedProof<E>>,   // combination of the three following fields
+    pub pvss_core: PVSSCore<E>,                                  // "core" of the aggregated PVSS sharing
+    pub contributions: BTreeMap<usize, (SignedProof<E>, u64)>,   // combination of the three following fields along with a weight
 
     // Using a BTreeMap saves us from having to manually manage three vectors instead:
     // pub id_vec: Vec<usize>,                     // vector of participant ids whose shares have been pooled together
@@ -110,7 +110,7 @@ impl<E: PairingEngine> PVSSAggregatedShare<E>
         let contributions = (0..self.num_participants)   // this is: n x amortized O(1)
             .map(
                 |i| match (self.contributions.get(&i), other.contributions.get(&i)) {
-                    (Some(a), Some(b)) => {
+                    (Some((a, w1)), Some((b, w2))) => {
                         if a.decomp_proof.gs != b.decomp_proof.gs {
                             return Err(PVSSError::TranscriptDifferentCommitments);
                         }
@@ -119,10 +119,10 @@ impl<E: PairingEngine> PVSSAggregatedShare<E>
                             decomp_proof: a.decomp_proof,
                             signature_on_decomp: a.signature_on_decomp,
                         };
-                        Ok(Some((i, signed_proof)))
+                        Ok(Some((i, (signed_proof, w1 + w2))))   // combine weights
                     }
-                    (Some(a), None) => Ok(Some((i, a.clone()))),
-                    (None, Some(b)) => Ok(Some((i, b.clone()))),
+                    (Some((a, w)), None) => Ok(Some((i, (a.clone(), *w)))),
+                    (None, Some((b, w))) => Ok(Some((i, (b.clone(), *w)))),
                     (None, None) => Ok(None),
                 },
             )
@@ -147,8 +147,8 @@ impl<E: PairingEngine> PVSSAggregatedShare<E>
     pub fn aggregate_pvss_share(&self, other: &PVSSShare<E>) -> Result<Self, PVSSError<E>> {
         // Convert other from a PVSSShare instance into a PVSSAggregatedShare instance.
 	let mut contribs = BTreeMap::new();
-	contribs.insert(other.participant_id, SignedProof{ decomp_proof: other.signed_proof.decomp_proof,
-						signature_on_decomp: other.signed_proof.signature_on_decomp });
+	contribs.insert(other.participant_id, (SignedProof { decomp_proof: other.signed_proof.decomp_proof,
+						signature_on_decomp: other.signed_proof.signature_on_decomp }, 1));
 
 	let other_agg_share = Self {
             num_participants: self.num_participants,
@@ -191,9 +191,7 @@ mod test {
         Signature,
     };
 
-    use ark_bls12_381::{
-	    Bls12_381 as E,   // type Bls12_381 = Bls12<Parameters> (Bls12 implements PairingEngine)
-    };
+    use ark_bls12_381::Bls12_381 as E;   // type Bls12_381 = Bls12<Parameters> (Bls12 implements PairingEngine)
     use ark_ec::{AffineCurve, ProjectiveCurve};
     use ark_ff::{PrimeField, Zero};
     use ark_poly::{Polynomial, UVPolynomial};
@@ -224,7 +222,7 @@ mod test {
         // sign the proof
         let sig = Signature::new(&mut dproof.digest(), &sk_sig);
 
-        let mut sproof = SignedProof {decomp_proof: dproof, signature_on_decomp: sig};
+        let mut sproof = SignedProof { decomp_proof: dproof, signature_on_decomp: sig };
 
         // Verify SignedProof instance
         sproof.verify(&conf, &pk_sig).unwrap();
@@ -286,7 +284,7 @@ mod test {
         // Sign the proof.
         let sig = Signature::new(&mut dproof.digest(), &sk_sig);
 
-        let sproof = SignedProof {decomp_proof: dproof, signature_on_decomp: sig};
+        let sproof = SignedProof { decomp_proof: dproof, signature_on_decomp: sig };
 
         // Evaluate poly(j) for all j in {1, ..., n}.
         let evals = (1..=n)
@@ -311,7 +309,7 @@ mod test {
                         .mul(evals[j].into_repr())
                         .into_affine()
                     })
-            .collect::<_>();
+                .collect::<_>();
 
         // Compose PVSS core.
         let pvss_core = PVSSCore::<E> {comms, encs};
@@ -357,7 +355,7 @@ mod test {
         // Sign the proof.
         let sig = Signature::new(&mut dproof.digest(), &sk_sig);
 
-        let sproof = SignedProof {decomp_proof: dproof, signature_on_decomp: sig};
+        let sproof = SignedProof { decomp_proof: dproof, signature_on_decomp: sig };
 
         // Evaluate poly(j) for all j in {1, ..., n}.
         let evals = (1..=n)
@@ -402,7 +400,7 @@ mod test {
 
         // Create a BTreeMap containing only the party's signed proof.
         let mut contribs = BTreeMap::new();
-	    contribs.insert(id, sproof);
+	    contribs.insert(id, (sproof, 1));
 
         // The expected result.
         let exp_result = PVSSAggregatedShare {
@@ -445,7 +443,7 @@ mod test {
         let (_schorr_sk_a, schnorr_pk_a) = schnorr_sig.generate_keypair(rng).unwrap();
 
         // Schnorr setup for party B
-        let (_schorr_sk_b,schnorr_pk_b) = schnorr_sig.generate_keypair(rng).unwrap();
+        let (_schorr_sk_b, schnorr_pk_b) = schnorr_sig.generate_keypair(rng).unwrap();
 
         // EdDSA setup for party A
         let (_pk_sig_a, sk_sig_a) = generate_production_keypair();
@@ -466,10 +464,10 @@ mod test {
         let sig_b = Signature::new(&mut dproof_b.digest(), &sk_sig_b);
 
         // Compose party A's signed proof.
-        let sproof_a = SignedProof {decomp_proof: dproof_a, signature_on_decomp: sig_a};
+        let sproof_a = SignedProof { decomp_proof: dproof_a, signature_on_decomp: sig_a };
 
         // Compose party B's signed proof.
-        let sproof_b = SignedProof {decomp_proof: dproof_b, signature_on_decomp: sig_b};
+        let sproof_b = SignedProof { decomp_proof: dproof_b, signature_on_decomp: sig_b };
 
         // Evaluate polyA(j) for all j in {1, ..., n}.
         let evals_a = (1..=n)
@@ -506,7 +504,7 @@ mod test {
                         .mul(evals_a[j].into_repr())
                         .into_affine()
                     })
-                .collect::<_>();
+            .collect::<_>();
 
         // Compute party B's encryptions for all nodes in {0, ..., n-1}.
         let encs_b: Vec<_> = (0..=(n-1))
@@ -554,8 +552,8 @@ mod test {
         // Create a BTreeMap containing party A and party B's signed proofs.
         // Note: Order of insertion is irrelevant.
         let mut contribs = BTreeMap::new();
-        contribs.insert(id_a, sproof_a);
-        contribs.insert(id_b, sproof_b);
+        contribs.insert(id_a, (sproof_a, 1));
+        contribs.insert(id_b, (sproof_b, 1));
 
         // The expected result.
         let exp_result = PVSSAggregatedShare {
@@ -601,7 +599,7 @@ mod test {
         // Sign the proof.
         let sig = Signature::new(&mut dproof.digest(), &sk_sig);
 
-        let sproof = SignedProof {decomp_proof: dproof, signature_on_decomp: sig};
+        let sproof = SignedProof { decomp_proof: dproof, signature_on_decomp: sig };
 
         // Evaluate poly(j) for all j in {1, ..., n}.
         let evals = (1..=n)
@@ -638,7 +636,7 @@ mod test {
             signed_proof: sproof,
         };
 
-	    // println!("pvss_share: {:?}", pvss_share);
+	// println!("pvss_share: {:?}", pvss_share);
 
         check_serialization(pvss_share);
     }
@@ -693,10 +691,10 @@ mod test {
         let sig_b = Signature::new(&mut dproof_b.digest(), &sk_sig_b);
 
         // Compose party A's signed proof.
-        let sproof_a = SignedProof {decomp_proof: dproof_a, signature_on_decomp: sig_a};
+        let sproof_a = SignedProof { decomp_proof: dproof_a, signature_on_decomp: sig_a };
 
         // Compose party B's signed proof.
-        let sproof_b = SignedProof {decomp_proof: dproof_b, signature_on_decomp: sig_b};
+        let sproof_b = SignedProof { decomp_proof: dproof_b, signature_on_decomp: sig_b };
 
         // Evaluate polyA(j) for all j in {1, ..., n}.
         let evals_a = (1..=n)
@@ -738,11 +736,11 @@ mod test {
         // Compute party B's encryptions for all nodes in {0, ..., n-1}.
         let encs_b: Vec<_> = (0..=(n-1))
 	        .map(|j| {
-                schnorr_pks[j]
-                    .mul(evals_b[j].into_repr())
-                    .into_affine()
+                    schnorr_pks[j]
+                        .mul(evals_b[j].into_repr())
+                        .into_affine()
                     })
-            .collect::<_>();
+                .collect::<_>();
 
         // Compose A's PVSS core.
         let pvss_core_a = PVSSCore::<E> {comms: comms_a.clone(), encs: encs_a.clone()};
