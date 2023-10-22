@@ -20,10 +20,11 @@ use ark_serialize::{CanonicalSerialize, CanonicalDeserialize, SerializationError
 // The scalar field of the pairing groups
 pub type Scalar<E> = <E as PairingEngine>::Fr;
 
-// The Share type
+// The group of commitments
 pub type ComGroup<E> = <E as PairingEngine>::G2Affine;
 pub type ComGroupP<E> = <E as PairingEngine>::G2Projective;
 
+// Keys
 pub type SecKey<E> = Scalar<E>;
 pub type PubKey<E> = <E as PairingEngine>::G1Affine;
 pub type PubKeyP<E> = <E as PairingEngine>::G1Projective;
