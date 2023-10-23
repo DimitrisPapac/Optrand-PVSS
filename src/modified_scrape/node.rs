@@ -94,9 +94,8 @@ where
                         .ok_or(PVSSError::<E>::InvalidParticipantId(j))?
                         .public_key_sig   // obtain participant's public (encryption) key
                         .mul(evals[j].into_repr())
-                        .into_affine()
-                        )
-                    })
+                        .into_affine())
+                })
                 .collect::<Result<_, _>>()?;
 
 	// Compose PVSS core
@@ -128,17 +127,17 @@ where
     // Method for creating a PVSSShare instance for secret sharing.
     pub fn share<R: Rng>(&mut self, rng: &mut R) -> Result<PVSSShare<E>, PVSSError<E>> {
         // Create the core PVSSCore first.
-	    let (pvss_core, pvss_share_secrets) = self.share_pvss(rng)?;
+	let (pvss_core, pvss_share_secrets) = self.share_pvss(rng)?;
 
-	    // Generate decomposition proof.
-	    let mut decomp_proof = Decomp::<E>::generate(rng, &self.aggregator.config, &pvss_share_secrets.p_0).unwrap();
+	// Generate decomposition proof.
+	let mut decomp_proof = Decomp::<E>::generate(rng, &self.aggregator.config, &pvss_share_secrets.p_0).unwrap();
 
         let digest = decomp_proof.digest();
 
         // println!("Received digest: {:?}", digest.0);   // Matches computation inside decomp.rs
 
         // Sign the decomposition proof using EdDSA
-	    let signature_on_decomp = Signature::new(&digest, &self.dealer.private_key_ed);
+	let signature_on_decomp = Signature::new(&digest, &self.dealer.private_key_ed);
 
         let signed_proof = SignedProof::<E> {
             decomp_proof,
@@ -147,14 +146,14 @@ where
 
         // println!("{:?}", signed_proof.decomp_proof);
 
-	    // Create the PVSS share.
-	    let share = PVSSShare {
+	// Create the PVSS share.
+	let share = PVSSShare {
             participant_id: self.dealer.participant.id,
             pvss_core,
-	        signed_proof,
+	    signed_proof,
         };
 
-	    // Set dealer instance's state to DealerShared.
+	// Set dealer instance's state to DealerShared.
         // self.dealer.participant.state = ParticipantState::DealerShared;
 
         Ok(share)
@@ -219,7 +218,7 @@ mod test {
         let config = Config {
             srs: srs.clone(),
             degree: 1,
-	    num_participants: 1,
+	        num_participants: 1,
         };
 
         let participants = vec![dealer.participant.clone()];
