@@ -100,12 +100,10 @@ mod test {
         signature::utils::tests::check_serialization,
     };
 
-    use ark_ff::Zero;
+    use ark_bls12_381::Bls12_381 as E;   // type Bls12_381 = Bls12<Parameters> (Bls12 implements PairingEngine)
     use ark_ec::ProjectiveCurve;
+    use ark_ff::Zero;
     use ark_std::UniformRand;
-    use ark_bls12_381::{
-	    Bls12_381 as E,   // type Bls12_381 = Bls12<Parameters> (Bls12 implements PairingEngine)
-    };
 
     use rand::thread_rng;
     use std::ops::Neg;
