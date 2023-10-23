@@ -60,10 +60,10 @@ pub struct PVSSAggregatedShare<E>
 where
     E: PairingEngine,
 {
-    pub num_participants: usize,
-    pub degree: usize,
+    pub num_participants: usize,                                 // number of participants in the PVSS protocol
+    pub degree: usize,                                           // secret polynomial degree
     pub pvss_core: PVSSCore<E>,                                  // "core" of the aggregated PVSS sharing
-    pub contributions: BTreeMap<usize, (SignedProof<E>, u64)>,   // combination of the three following fields along with a weight
+    pub contributions: BTreeMap<usize, (SignedProof<E>, u64)>,   // combination of the three following fields along with the proof's weight
 
     // Using a BTreeMap saves us from having to manually manage three vectors instead:
     // pub id_vec: Vec<usize>,                     // vector of participant ids whose shares have been pooled together
@@ -432,7 +432,7 @@ mod test {
         let schnorr_sig = SchnorrSignature { srs: schnorr_srs };
 
         // Sample a random degree t polynomial for party A.
-	    let poly_a = Poly::<E>::rand(t, rng);
+	let poly_a = Poly::<E>::rand(t, rng);
         let p_0_a = poly_a[0];   // the free term
 
         // Sample a random degree t polynomial for party B.
@@ -513,7 +513,7 @@ mod test {
                     .mul(evals_b[j].into_repr())
                     .into_affine()
                     })
-            .collect::<_>();
+                .collect::<_>();
 
         // Compose A's PVSS core.
         let pvss_core_a = PVSSCore::<E> {comms: comms_a.clone(), encs: encs_a.clone()};
@@ -576,7 +576,7 @@ mod test {
         let id = 5_usize;
 
         // Sample a random degree t polynomial.
-	    let poly = Poly::<E>::rand(t, rng);
+	let poly = Poly::<E>::rand(t, rng);
         let p_0 = poly[0];   // the free term
 
         // PVSS setup
@@ -659,7 +659,7 @@ mod test {
         let schnorr_sig = SchnorrSignature { srs: schnorr_srs };
 
         // Sample a random degree t polynomial for party A.
-	    let poly_a = Poly::<E>::rand(t, rng);
+	let poly_a = Poly::<E>::rand(t, rng);
         let p_0_a = poly_a[0];   // the free term
 
         // Sample a random degree t polynomial for party B.
