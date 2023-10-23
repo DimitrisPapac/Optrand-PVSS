@@ -63,12 +63,7 @@ where
     pub num_participants: usize,                                 // number of participants in the PVSS protocol
     pub degree: usize,                                           // secret polynomial degree
     pub pvss_core: PVSSCore<E>,                                  // "core" of the aggregated PVSS sharing
-    pub contributions: BTreeMap<usize, (SignedProof<E>, u64)>,   // combination of the three following fields along with the proof's weight
-
-    // Using a BTreeMap saves us from having to manually manage three vectors instead:
-    // pub id_vec: Vec<usize>,                     // vector of participant ids whose shares have been pooled together
-    // pub decomp_proofs: Vec<DecompProof<E>>,     // accumulation of decomposition proofs
-    // pub signatures_on_decomps: Vec<Signature>,  // accumulation of signatures on decomposition proofs
+    pub contributions: BTreeMap<usize, (SignedProof<E>, u64)>,   // maps a participant's id to a signed proof instance, along with the proof's weight
 }
 
 
