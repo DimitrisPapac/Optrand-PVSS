@@ -1,6 +1,7 @@
 use crate::{
     ComGroupP,
     EncGroup,
+    EncGroupP,
     modified_scrape::{
 	config::Config,
         decomp::DecompProof,
@@ -16,7 +17,8 @@ use crate::{
 
 use ark_ec::{AffineCurve, PairingEngine, ProjectiveCurve};
 use ark_ff::{One, Zero};
-use ark_std::collections::BTreeMap;
+use ark_std::{collections::BTreeMap, UniformRand};
+
 
 use rand::Rng;
 use std::ops::Neg;
@@ -152,16 +154,14 @@ where
                             self.config.num_participants));
         }
 
-        // if agg_share.contributions.len() < self.config.degree {}
-
 	// Coding check for the commitments to ensure that they represent a
 	// commitment to a degree t polynomial.
 	if ensure_degree::<E, _>(rng, &agg_share.pvss_core.comms, self.config.degree as u64).is_err() {
             return Err(PVSSError::DualCodeError);
         }
 	
-	// Pairing check: e(pk_i, com_i) = e(enc_i, g2).
-
+	// Pairing check: e(pk_i, comm_i) = e(enc_i, g2), for all i in {0, ..., n-1}. Requires: 2n-pairings.
+    /*
 	let correct_encryptions = (0..self.config.num_participants)
 	    .all(|i| { let pairs = [
             	(self.participants.get(&i).unwrap().public_key_sig.into(), agg_share.pvss_core.comms[i].into()),
@@ -175,6 +175,36 @@ where
 	if !correct_encryptions {
 	    return Err(PVSSError::EncryptionCorrectnessError);
 	}
+    */
+    
+
+    // Alternative pairing check: e(epsilon, g2) = prod_{i} e(pk_i, comm_i),
+    // where: epsilon := prod_{i} enc_i^{r_i} for r_i <--$ F_q, for all i in {0, ..., n-1}.
+    // Requires: n + 1 pairings.
+
+    // Sample random field elements
+    let r = vec![E::Fr::rand(rng); self.config.num_participants];
+
+    // Compute epsilon
+    let mut epsilon = EncGroupP::<E>::zero();
+    for i in 0..self.config.num_participants {
+        epsilon += agg_share.pvss_core.encs[i].mul(r[i]);
+    }
+
+    // Construct pairs
+    let mut pairs = vec![(epsilon.into_affine().neg().into(),
+        self.config.srs.g2.into())];
+    
+    for i in 0..self.config.num_participants {
+        pairs.push((self.participants.get(&i).unwrap().public_key_sig.mul(r[i]).into_affine().into(),
+            agg_share.pvss_core.comms[i].into()));
+    }
+
+    // Evaluate pairing condition
+    if !E::product_of_pairings(pairs.iter()).is_one() {
+	    return Err(PVSSError::EncryptionCorrectnessError);
+	}
+    
 
 	// Decomposition proof check:
 
@@ -186,10 +216,10 @@ where
 
 	// Contributions are essentially signed decomposition proofs along with their weight.
 	for (_participant_id, (contribution, weight)) in agg_share.contributions.iter() {
-        // let party = self.participants.get(participant_id).unwrap();
-        // if contribution.verify(&self.config, &party.public_key_ed).is_err() {
-        //     return Err(PVSSError::InvalidSignedProofError);
-        // }
+            // let party = self.participants.get(participant_id).unwrap();
+            // if contribution.verify(&self.config, &party.public_key_ed).is_err() {
+            //     return Err(PVSSError::InvalidSignedProofError);
+            // }
 
 	    if contribution.decomp_proof.verify(&self.config).is_err() {
 		return Err(PVSSError::DecompositionInTranscriptError);
@@ -198,10 +228,10 @@ where
             gs_total += contribution.decomp_proof.gs.mul(Scalar::<E>::from(*weight));
 	}
 
-    // The point reconstructed from the aggregated share's commitment vector must be a
-    // commitment to the evaluation of polynomial sum_{i} w_i * p_i(x) on point x = 0
-    // i.e., a commitment to this polynomial's free term.
-	if gs_total.into_affine() != point {   // if gs_total != point.into_affine()
+        // The point reconstructed from the aggregated share's commitment vector must be a
+        // commitment to the evaluation of polynomial sum_{i} w_i * p_i(x) on point x = 0
+        // i.e., a commitment to this polynomial's free term.
+	if gs_total.into_affine() != point {
 	    return Err(PVSSError::AggregationReconstructionMismatchError);
 	}
 
@@ -242,11 +272,11 @@ where
         agg_share: &PVSSAggregatedShare<E>,
     ) -> Result<(), PVSSError<E>> {
 
-	// Verify aggregation
-	self.aggregation_verify(rng, agg_share).unwrap();
+	    // Verify aggregation
+	    self.aggregation_verify(rng, agg_share).unwrap();
 
-	// Aggregate the received aggregated PVSS share into the aggregator's internal aggregated transcript.
-	self.aggregated_tx = self.aggregated_tx.aggregate(agg_share).unwrap();
+	    // Aggregate the received aggregated PVSS share into the aggregator's internal aggregated transcript.
+	    self.aggregated_tx = self.aggregated_tx.aggregate(agg_share).unwrap();
 
         Ok(())
     }
