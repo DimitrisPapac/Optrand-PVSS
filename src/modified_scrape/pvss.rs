@@ -12,7 +12,7 @@ pub struct PVSSCore<E>
 where
     E: PairingEngine,
 {
-    pub encs: Vec<EncGroup<E>>,    // vector of encryptions c
+    pub encs:  Vec<EncGroup<E>>,   // vector of encryptions c
     pub comms: Vec<ComGroup<E>>,   // vector of commitments v
 }
 
