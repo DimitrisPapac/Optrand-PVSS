@@ -324,20 +324,17 @@ mod test {
             .unwrap();
     }
 
-
     #[test]
     #[should_panic]
     fn test_simple_nizk_malformed_challenge_g1_g1() {
         test_simple_nizk_malformed_challenge::<G1Affine, G1Affine>();
     }
 
-
     #[test]
     #[should_panic]
     fn test_simple_nizk_malformed_challenge_g1_g2() {
         test_simple_nizk_malformed_challenge::<G1Affine, G2Affine>();
     }
-
 
     #[test]
     #[should_panic]
@@ -361,13 +358,12 @@ mod test {
         let (comms, _, z) = dleq.prove(rng, &pair.0).unwrap();
 
         let new_challenge = C1::ScalarField::rand(rng);
-	let malformed_proof = (comms, new_challenge, z);
+	    let malformed_proof = (comms, new_challenge, z);
 
         dleq
             .verify(&pair.1, &malformed_proof)
             .unwrap();
     }
-
 
     #[test]
     #[should_panic]
