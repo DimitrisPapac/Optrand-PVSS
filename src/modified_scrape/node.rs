@@ -403,17 +403,17 @@ mod test {
         assert_eq!(node_c.aggregator.aggregated_tx, node_d.aggregator.aggregated_tx);
 
         // Aggregated share of the left subcommittee
-        let agg_share_ab = node_a.aggregator.aggregated_tx.clone();
+        let mut agg_share_ab = node_a.aggregator.aggregated_tx.clone();
         // Aggregated share of the right subcommittee
-        let agg_share_cd = node_c.aggregator.aggregated_tx.clone();
+        let mut agg_share_cd = node_c.aggregator.aggregated_tx.clone();
 
         // Right subcommittee receives the left subcommittee's aggregated share
-        node_c.aggregator.receive_aggregated_share(rng, &agg_share_ab).unwrap();
-        node_d.aggregator.receive_aggregated_share(rng, &agg_share_ab).unwrap();
+        node_c.aggregator.receive_aggregated_share(rng, &mut agg_share_ab).unwrap();
+        node_d.aggregator.receive_aggregated_share(rng, &mut agg_share_ab).unwrap();
 
         // Left subcommittee receives the right subcommittee's aggregated share
-        node_a.aggregator.receive_aggregated_share(rng, &agg_share_cd).unwrap();
-        node_b.aggregator.receive_aggregated_share(rng, &agg_share_cd).unwrap();
+        node_a.aggregator.receive_aggregated_share(rng, &mut agg_share_cd).unwrap();
+        node_b.aggregator.receive_aggregated_share(rng, &mut agg_share_cd).unwrap();
 
         // All nodes should now hold the exact same aggregated transcript
         assert_eq!(node_a.aggregator.aggregated_tx, node_b.aggregator.aggregated_tx);
@@ -577,7 +577,7 @@ mod test {
         assert!(res2.contributions.get(&0).unwrap().1 == 2);
 
         // Also, if node B were to receive this aggregated share, aggregation_verify() wouldn't panic.
-        node_b.aggregator.receive_aggregated_share(rng, &node_a.aggregator.aggregated_tx.clone()).unwrap();
+        node_b.aggregator.receive_aggregated_share(rng, &mut node_a.aggregator.aggregated_tx.clone()).unwrap();
 
         // println!("Node's aggregated_tx is now:\n\n{:?}", node_a.aggregator.aggregated_tx);
     }
