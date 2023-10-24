@@ -140,7 +140,7 @@ where
     pub fn aggregation_verify<R: Rng>(
         &mut self,
         rng: &mut R,
-        agg_share: &PVSSAggregatedShare<E>,
+        agg_share: &mut PVSSAggregatedShare<E>,
     ) -> Result<(), PVSSError<E>> 
     where
         Scalar<E>: From<u64> {
@@ -214,15 +214,16 @@ where
         let mut gs_total = ComGroupP::<E>::zero();
 
 	// Contributions are essentially signed decomposition proofs along with their weight.
-	for (_participant_id, (contribution, weight)) in agg_share.contributions.iter() {
-            // let party = self.participants.get(participant_id).unwrap();
-            // if contribution.verify(&self.config, &party.public_key_ed).is_err() {
-            //     return Err(PVSSError::InvalidSignedProofError);
-            // }
+	for (participant_id, (contribution, weight)) in agg_share.contributions.iter_mut() {
+            let party = self.participants.get(participant_id).unwrap();
 
-	    if contribution.decomp_proof.verify(&self.config).is_err() {
-		return Err(PVSSError::DecompositionInTranscriptError);
-	    }
+            if contribution.verify(&self.config, &party.public_key_ed).is_err() {
+                return Err(PVSSError::InvalidSignedProofError);
+            }
+
+	    //if contribution.decomp_proof.verify(&self.config).is_err() {
+		//return Err(PVSSError::DecompositionInTranscriptError);
+	    //}
 
             gs_total += contribution.decomp_proof.gs.mul(Scalar::<E>::from(*weight));
 	}
@@ -234,14 +235,14 @@ where
 	    return Err(PVSSError::AggregationReconstructionMismatchError);
 	}
 
-	for (participant_id, (contribution, _weight)) in agg_share.contributions.iter() {
-            let party = self.participants.get(participant_id).unwrap();
+	//for (participant_id, (contribution, _weight)) in agg_share.contributions.iter() {
+    //        let party = self.participants.get(participant_id).unwrap();
 
-            // Verify individual signed proof
-            if contribution.clone().verify(&self.config, &party.public_key_ed).is_err() {
-               return Err(PVSSError::EdDSAInvalidSignatureError);
-            }
-	}
+    //        // Verify individual signed proof
+    //       if contribution.clone().verify(&self.config, &party.public_key_ed).is_err() {
+    //           return Err(PVSSError::EdDSAInvalidSignatureError);
+    //        }
+	//}
 
         Ok(())
     }
@@ -268,7 +269,7 @@ where
     pub fn receive_aggregated_share<R: Rng>(
         &mut self,
         rng: &mut R,
-        agg_share: &PVSSAggregatedShare<E>,
+        agg_share: &mut PVSSAggregatedShare<E>,
     ) -> Result<(), PVSSError<E>> {
 
 	    // Verify aggregation
