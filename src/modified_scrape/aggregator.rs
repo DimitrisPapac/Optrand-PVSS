@@ -221,10 +221,6 @@ where
                 return Err(PVSSError::InvalidSignedProofError);
             }
 
-	    //if contribution.decomp_proof.verify(&self.config).is_err() {
-		//return Err(PVSSError::DecompositionInTranscriptError);
-	    //}
-
             gs_total += contribution.decomp_proof.gs.mul(Scalar::<E>::from(*weight));
 	}
 
@@ -234,15 +230,6 @@ where
 	if gs_total.into_affine() != point {
 	    return Err(PVSSError::AggregationReconstructionMismatchError);
 	}
-
-	//for (participant_id, (contribution, _weight)) in agg_share.contributions.iter() {
-    //        let party = self.participants.get(participant_id).unwrap();
-
-    //        // Verify individual signed proof
-    //       if contribution.clone().verify(&self.config, &party.public_key_ed).is_err() {
-    //           return Err(PVSSError::EdDSAInvalidSignatureError);
-    //        }
-	//}
 
         Ok(())
     }
