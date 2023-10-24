@@ -182,15 +182,14 @@ where
     // where: epsilon := prod_{i} enc_i^{r_i} for r_i <--$ F_q, for all i in {0, ..., n-1}.
     // Requires: n + 1 pairings.
 
-    // Sample random field elements
-    let r = vec![E::Fr::rand(rng); self.config.num_participants];
-
     // Compute epsilon and construct pairs
     let mut epsilon = EncGroupP::<E>::zero();
     let mut pairs = vec![(epsilon.into_affine().neg().into(), self.config.srs.g2.into())];
     for i in 0..self.config.num_participants {
-        epsilon += agg_share.pvss_core.encs[i].mul(r[i]);
-        pairs.push((self.participants.get(&i).unwrap().public_key_sig.mul(r[i]).into_affine().into(),
+        // Sample random field elements
+        let r = E::Fr::rand(rng);
+        epsilon += agg_share.pvss_core.encs[i].mul(r);
+        pairs.push((self.participants.get(&i).unwrap().public_key_sig.mul(r).into_affine().into(),
             agg_share.pvss_core.comms[i].into()));
     }
 
