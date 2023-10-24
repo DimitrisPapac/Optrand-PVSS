@@ -22,3 +22,9 @@ serde = { version = "1.0", features = ["derive"] }
 base64 = "0.13.0"
 threshold_crypto = { version = "0.4", git = "https://github.com/poanetwork/threshold_crypto" }
 sha3 = "0.10.8"
+
+[profile.release]
+opt-level = 3
+
+#[dev-dependencies]
+#criterion = "0.3"
