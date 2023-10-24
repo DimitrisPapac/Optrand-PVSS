@@ -160,7 +160,9 @@ where
             return Err(PVSSError::DualCodeError);
         }
 	
-	// Pairing check: e(pk_i, comm_i) = e(enc_i, g2), for all i in {0, ..., n-1}. Requires: 2n-pairings.
+	// Pairing check: e(pk_i, comm_i) = e(enc_i, g2), for all i in {0, ..., n-1}.
+    // Requires: 2n-pairings.
+    
     /*
 	let correct_encryptions = (0..self.config.num_participants)
 	    .all(|i| { let pairs = [
@@ -185,19 +187,15 @@ where
     // Sample random field elements
     let r = vec![E::Fr::rand(rng); self.config.num_participants];
 
-    // Compute epsilon
+    // Compute epsilon and construct pairs
     let mut epsilon = EncGroupP::<E>::zero();
+    let mut pairs = vec![];
     for i in 0..self.config.num_participants {
         epsilon += agg_share.pvss_core.encs[i].mul(r[i]);
-    }
-
-    // Construct pairs
-    let mut pairs = vec![(epsilon.into_affine().neg().into(),
-        self.config.srs.g2.into())];
-    for i in 0..self.config.num_participants {
         pairs.push((self.participants.get(&i).unwrap().public_key_sig.mul(r[i]).into_affine().into(),
             agg_share.pvss_core.comms[i].into()));
     }
+    pairs.push((epsilon.into_affine().neg().into(), self.config.srs.g2.into()));
 
     // Evaluate pairing condition
     if !E::product_of_pairings(pairs.iter()).is_one() {
