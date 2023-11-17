@@ -161,44 +161,44 @@ where
         }
 	
 	// Pairing check: e(pk_i, comm_i) = e(enc_i, g2), for all i in {0, ..., n-1}.
-    // Requires: 2n-pairings.
+        // Requires: 2n-pairings.
     
-    /*
-	let correct_encryptions = (0..self.config.num_participants)
-	    .all(|i| { let pairs = [
-            	(self.participants.get(&i).unwrap().public_key_sig.into(), agg_share.pvss_core.comms[i].into()),
-            	(agg_share.pvss_core.encs[i].neg().into(), self.config.srs.g2.into()),
-            ];
+        /*
+	    let correct_encryptions = (0..self.config.num_participants)
+	        .all(|i| { let pairs = [
+            	    (self.participants.get(&i).unwrap().public_key_sig.into(), agg_share.pvss_core.comms[i].into()),
+            	    (agg_share.pvss_core.encs[i].neg().into(), self.config.srs.g2.into()),
+                ];
 
-	    E::product_of_pairings(pairs.iter()).is_one()
+	        E::product_of_pairings(pairs.iter()).is_one()
+	        }
+	    );
+
+	    if !correct_encryptions {
+	        return Err(PVSSError::EncryptionCorrectnessError);
 	    }
-	);
-
-	if !correct_encryptions {
-	    return Err(PVSSError::EncryptionCorrectnessError);
-	}
-    */
+        */
     
 
-    // Alternative pairing check: e(epsilon, g2) = prod_{i} e(pk_i, comm_i),
-    // where: epsilon := prod_{i} enc_i^{r_i} for r_i <--$ F_q, for all i in {0, ..., n-1}.
-    // Requires: n + 1 pairings.
+        // Alternative pairing check: e(epsilon, g2) = prod_{i} e(pk_i, comm_i),
+        // where: epsilon := prod_{i} enc_i^{r_i} for r_i <--$ F_q, for all i in {0, ..., n-1}.
+        // Requires: (n + 1)-pairings.
 
-    // Sample random field elements
-    let r = vec![E::Fr::rand(rng); self.config.num_participants];
+        // Sample random field elements
+        let r = vec![E::Fr::rand(rng); self.config.num_participants];
 
-    // Compute epsilon and construct pairs
-    let mut epsilon = EncGroupP::<E>::zero();
-    let mut pairs = vec![];
-    for i in 0..self.config.num_participants {
-        epsilon += agg_share.pvss_core.encs[i].mul(r[i]);
-        pairs.push((self.participants.get(&i).unwrap().public_key_sig.mul(r[i]).into_affine().into(),
-            agg_share.pvss_core.comms[i].into()));
-    }
-    pairs.push((epsilon.into_affine().neg().into(), self.config.srs.g2.into()));
+        // Compute epsilon and construct pairs
+        let mut epsilon = EncGroupP::<E>::zero();
+        let mut pairs = vec![];
+        for i in 0..self.config.num_participants {
+            epsilon += agg_share.pvss_core.encs[i].mul(r[i]);
+            pairs.push((self.participants.get(&i).unwrap().public_key_sig.mul(r[i]).into_affine().into(),
+                agg_share.pvss_core.comms[i].into()));
+        }
+        pairs.push((epsilon.into_affine().neg().into(), self.config.srs.g2.into()));
 
-    // Evaluate pairing condition
-    if !E::product_of_pairings(pairs.iter()).is_one() {
+        // Evaluate pairing condition
+        if !E::product_of_pairings(pairs.iter()).is_one() {
 	    return Err(PVSSError::EncryptionCorrectnessError);
 	}
     
@@ -257,11 +257,11 @@ where
         agg_share: &mut PVSSAggregatedShare<E>,
     ) -> Result<(), PVSSError<E>> {
 
-	    // Verify aggregation
-	    self.aggregation_verify(rng, agg_share).unwrap();
+	// Verify aggregation
+	self.aggregation_verify(rng, agg_share).unwrap();
 
-	    // Aggregate the received aggregated PVSS share into the aggregator's internal aggregated transcript.
-	    self.aggregated_tx = self.aggregated_tx.aggregate(agg_share).unwrap();
+	// Aggregate the received aggregated PVSS share into the aggregator's internal aggregated transcript.
+	self.aggregated_tx = self.aggregated_tx.aggregate(agg_share).unwrap();
 
         Ok(())
     }
