@@ -438,4 +438,78 @@ mod test {
         check_serialization(pair.clone());
         check_serialization(proof.clone());
     }
+
+
+
+    #[test]
+    fn test_benchmark_g1_g2() {
+	use std::time::Instant;
+	let now = Instant::now();
+
+        test_benchmark::<G1Affine, G2Affine>();
+
+	let elapsed = now.elapsed();
+    	println!("Elapsed time for 1 DLEQ: {:.2?}", elapsed);
+
+	assert_eq!(2+2, 4);
+    }
+
+    #[test]
+    fn test_benchmark_g2_g1() {
+        use std::time::Instant;
+	let now = Instant::now();
+
+        test_benchmark::<G2Affine, G1Affine>();
+
+	let elapsed = now.elapsed();
+    	println!("Elapsed time for 1 DLEQ: {:.2?}", elapsed);
+
+	assert_eq!(2+2, 4);
+    }
+
+
+    #[test]
+    fn test_benchmark_g1_g2_64() {
+	use std::time::Instant;
+	let now = Instant::now();
+
+	for _ in 0..64 {
+            test_benchmark::<G1Affine, G2Affine>();
+	}
+
+	let elapsed = now.elapsed();
+    	println!("Elapsed time for 64 DLEQs: {:.2?}", elapsed);
+
+	assert_eq!(2+2, 4);
+    }
+
+    #[test]
+    fn test_benchmark_g2_g1_64() {
+	use std::time::Instant;
+	let now = Instant::now();
+
+	for _ in 0..64 {
+            test_benchmark::<G2Affine, G1Affine>();
+	}
+
+	let elapsed = now.elapsed();
+    	println!("Elapsed time for 64 DLEQs: {:.2?}", elapsed);
+
+	assert_eq!(2+2, 4);
+    }
+
+    
+    fn test_benchmark<C1: AffineCurve, C2: AffineCurve<ScalarField = C1::ScalarField>>() {
+	let rng = &mut thread_rng();
+        let srs = SRS::<C1, C2>::setup(rng).unwrap();
+        let dleq = DLEQProof { srs };
+        let pair = dleq.generate_pair(rng).unwrap();
+
+        // let stmnt = dleq.from_witness(&pair.0).unwrap();
+
+        let proof: ((C1, C2), <C1 as AffineCurve>::ScalarField, <C1 as AffineCurve>::ScalarField) = dleq.prove(rng, &pair.0).unwrap();
+        dleq
+            .verify(&pair.1, &proof)
+            .unwrap();
+    }
 }
