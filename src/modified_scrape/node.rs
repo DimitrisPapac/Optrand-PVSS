@@ -429,30 +429,30 @@ mod test {
         assert_eq!(node_b.aggregator.aggregated_tx, node_c.aggregator.aggregated_tx);
         assert_eq!(node_c.aggregator.aggregated_tx, node_d.aggregator.aggregated_tx);
 
-	    // Let comms denote the shared commitments vector (PK in the paper)
-	    let comms = node_a.aggregator.aggregated_tx.pvss_core.comms.clone();
+	// Let comms denote the shared commitments vector (PK in the paper)
+	let comms = node_a.aggregator.aggregated_tx.pvss_core.comms.clone();
 
-	    // Party A computes its decrypted share
-	    let dec_a = DecryptedShare::<Bls12_381>::generate(&node_a.aggregator.aggregated_tx.pvss_core.encs,
+	// Party A computes its decrypted share
+	let dec_a = DecryptedShare::<Bls12_381>::generate(&node_a.aggregator.aggregated_tx.pvss_core.encs,
 			&node_a.dealer.private_key_sig, 
 			node_a.dealer.participant.id);
 
-	    // Party A computes its commitment vector
-	    let r_a = <Bls12_381 as PairingEngine>::Fr::rand(rng);
+	// Party A computes its commitment vector
+	let r_a = <Bls12_381 as PairingEngine>::Fr::rand(rng);
 
-	    let cm_a: (ComGroup<Bls12_381>, EncGroup<Bls12_381>) = (node_a.aggregator.config.srs.g2.mul(r_a.into_repr()).into_affine(),
+	let cm_a: (ComGroup<Bls12_381>, EncGroup<Bls12_381>) = (node_a.aggregator.config.srs.g2.mul(r_a.into_repr()).into_affine(),
 			dec_a.dec + node_a.aggregator.config.srs.g1.mul(r_a.into_repr()).neg().into_affine());
 
-	    // A party that receives Party A's cm vector computes the following:
-	    let pairs = [
+	// A party that receives Party A's cm vector computes the following:
+	let pairs = [
 		     (node_a.aggregator.config.srs.g1.neg().into(), comms[dec_a.origin].into()), 
                      (node_a.aggregator.config.srs.g1.into(), cm_a.0.into()),
                      (cm_a.1.into(), node_a.aggregator.config.srs.g2.into()),
                     ];
 
-	    let prod = <Bls12_381 as PairingEngine>::product_of_pairings(pairs.iter());
+	let prod = <Bls12_381 as PairingEngine>::product_of_pairings(pairs.iter());
 
-	    assert!(prod.is_one());
+	assert!(prod.is_one());
     }
 
 
