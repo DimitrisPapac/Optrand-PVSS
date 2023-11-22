@@ -74,6 +74,7 @@ where
 	let poly = Poly::<E>::rand(t, rng);
 
 	// Evaluate poly(j) for all j in {1, ..., n}
+	// i.e., evals = {p(1), p(2), ..., p(n)}
 	let evals = (1..=n)
 	        .map(|j| poly.evaluate(&Scalar::<E>::from(j as u64)))
 	        .collect::<Vec<_>>();
@@ -86,7 +87,7 @@ where
 
 	// Compute encryptions for all nodes in {0, ..., n-1}
 	let encs = (0..=(n-1))
-	        .map::<Result<E::G1Affine, PVSSError<E>>, _>(|j| {
+	        .map::<Result<EncGroup<E>, PVSSError<E>>, _>(|j| {
                     Ok(self
                         .aggregator
                         .participants
@@ -168,11 +169,13 @@ where
 #[cfg(test)]
 mod test {
     use crate::{
+	ComGroup,
         EncGroup,
         modified_scrape::{
             aggregator::PVSSAggregator,
             config::Config,
             dealer::Dealer,
+	    decryption::DecryptedShare,
             participant::Participant,
 	    share::PVSSAggregatedShare,
 	    srs::SRS,
@@ -184,12 +187,16 @@ mod test {
     	},
 	generate_production_keypair,
     };
+    use crate::ark_std::UniformRand;
 
     use ark_bls12_381::Bls12_381;   // type Bls12_381 = Bls12<Parameters> (Bls12 implements PairingEngine)
+    use ark_ec::{AffineCurve, PairingEngine, ProjectiveCurve};
+    use ark_ff::{One, PrimeField};
     use ark_std::collections::BTreeMap;
     use rand::thread_rng;
 
     use std::marker::PhantomData;
+    use std::ops::Neg;
 
     #[test]
     fn test_one() {
@@ -218,7 +225,7 @@ mod test {
         let config = Config {
             srs: srs.clone(),
             degree: 1,
-	        num_participants: 1,
+	    num_participants: 1,
         };
 
         let participants = vec![dealer.participant.clone()];
@@ -250,7 +257,7 @@ mod test {
 
         // Global settings
         let srs = SRS::<Bls12_381>::setup(rng).unwrap();
-        let schnorr_srs = SCHSRS::<EncGroup::<Bls12_381>>::setup(rng).unwrap();
+        let schnorr_srs = SCHSRS::<EncGroup::<Bls12_381>>::from_generator(srs.g1).unwrap(); // SCHSRS::<EncGroup::<Bls12_381>>::setup(rng).unwrap();
         let schnorr_sig = SchnorrSignature { srs: schnorr_srs };
 
         // Set global configuration parameters
@@ -275,6 +282,8 @@ mod test {
                 public_key_ed: eddsa_keypair_a.0,
             },
         };
+
+        // assert_eq!(dealer_a.participant.public_key_sig.mul(dealer_a.private_key_sig.inverse().unwrap().into_repr()).into_affine(), schnorr_srs.g_public_key);
 
         // Generate key pairs for party B
         let dealer_keypair_sig_b = schnorr_sig.generate_keypair(rng).unwrap();   // (sk, pk)
@@ -419,6 +428,31 @@ mod test {
         assert_eq!(node_a.aggregator.aggregated_tx, node_b.aggregator.aggregated_tx);
         assert_eq!(node_b.aggregator.aggregated_tx, node_c.aggregator.aggregated_tx);
         assert_eq!(node_c.aggregator.aggregated_tx, node_d.aggregator.aggregated_tx);
+
+	    // Let comms denote the shared commitments vector (PK in the paper)
+	    let comms = node_a.aggregator.aggregated_tx.pvss_core.comms.clone();
+
+	    // Party A computes its decrypted share
+	    let dec_a = DecryptedShare::<Bls12_381>::generate(&node_a.aggregator.aggregated_tx.pvss_core.encs,
+			&node_a.dealer.private_key_sig, 
+			node_a.dealer.participant.id);
+
+	    // Party A computes its commitment vector
+	    let r_a = <Bls12_381 as PairingEngine>::Fr::rand(rng);
+
+	    let cm_a: (ComGroup<Bls12_381>, EncGroup<Bls12_381>) = (node_a.aggregator.config.srs.g2.mul(r_a.into_repr()).into_affine(),
+			dec_a.dec + node_a.aggregator.config.srs.g1.mul(r_a.into_repr()).neg().into_affine());
+
+	    // A party that receives Party A's cm vector computes the following:
+	    let pairs = [
+		     (node_a.aggregator.config.srs.g1.neg().into(), comms[dec_a.origin].into()), 
+                     (node_a.aggregator.config.srs.g1.into(), cm_a.0.into()),
+                     (cm_a.1.into(), node_a.aggregator.config.srs.g2.into()),
+                    ];
+
+	    let prod = <Bls12_381 as PairingEngine>::product_of_pairings(pairs.iter());
+
+	    assert!(prod.is_one());
     }
 
 
