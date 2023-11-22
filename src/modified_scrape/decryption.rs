@@ -16,9 +16,9 @@ pub struct DecryptedShare<E: PairingEngine> {
 impl<E: PairingEngine> DecryptedShare<E> {
 
     // Associated function for generating a decrypted share from a given encrypted share.
-    pub fn generate(enc: &[EncGroup<E>], sk: &Scalar<E>, my_id: usize) -> DecryptedShare<E> {
+    pub fn generate(encs: &[EncGroup<E>], sk: &Scalar<E>, my_id: usize) -> DecryptedShare<E> {
         // dec := enc * sk^{-1}
-        let dec = enc[my_id].mul(sk.inverse().unwrap().into_repr()).into_affine();
+        let dec = encs[my_id].mul(sk.inverse().unwrap().into_repr()).into_affine();
 
     	DecryptedShare {dec, origin: my_id}
     }
