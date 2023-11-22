@@ -227,7 +227,7 @@ mod test {
         let schnorr = SchnorrSignature { srs };
         let keypair = schnorr.generate_keypair(rng).unwrap();
 
-	    // assert_eq!(keypair.1.mul(keypair.0.inverse().unwrap().into_repr()).into_affine(), srs.g_public_key);
+	// assert_eq!(keypair.1.mul(keypair.0.inverse().unwrap().into_repr()).into_affine(), srs.g_public_key);
 
         let message = b"hello";
 
