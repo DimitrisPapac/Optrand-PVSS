@@ -8,12 +8,13 @@ use crate::{
 
 use ark_ec::{PairingEngine, ProjectiveCurve};
 use ark_ff::UniformRand;
+use ark_serialize::{CanonicalSerialize, CanonicalDeserialize, Read, SerializationError, Write};
 
 use rand::Rng;
 
 /* The Structured Reference String (SRS) of the Optrand-based PVSS scheme. */
 
-#[derive(Clone)]
+#[derive(Clone, CanonicalSerialize, CanonicalDeserialize)]
 pub struct SRS<E: PairingEngine> {
     pub g1: EncGroup<E>,        // generator g_1 of the public key group G_1
     pub g2: ComGroup<E>,        // generator g_2 of the commitment group G_2
