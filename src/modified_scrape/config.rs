@@ -6,7 +6,7 @@ use ark_serialize::{CanonicalSerialize, CanonicalDeserialize, Read, Serializatio
    in the network needs to know in order to generate/verify a PVSS sharing.
 */
 
-#[derive(Clone, CanonicalSerialize, CanonicalDeserialize)]
+#[derive(Clone, CanonicalSerialize, CanonicalDeserialize, Debug)]
 pub struct Config<E: PairingEngine> {
     pub srs: SRS<E>,               // the associated SRS
     pub degree: usize,             // polynomial degree (t)
