@@ -14,7 +14,7 @@ use rand::Rng;
 
 /* The Structured Reference String (SRS) of the Optrand-based PVSS scheme. */
 
-#[derive(Clone, CanonicalSerialize, CanonicalDeserialize)]
+#[derive(Clone, CanonicalSerialize, CanonicalDeserialize, Debug)]
 pub struct SRS<E: PairingEngine> {
     pub g1: EncGroup<E>,        // generator g_1 of the public key group G_1
     pub g2: ComGroup<E>,        // generator g_2 of the commitment group G_2
