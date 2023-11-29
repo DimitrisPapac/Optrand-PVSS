@@ -533,7 +533,7 @@ mod test {
             .collect::<Vec<_>>();
 
         let persona = b"OnePiece";
-        let current_epoch: u128 = 0;
+        let current_epoch: u128 = 2;
 
         // Compute new epoch generator
         let epoch_generator =
@@ -576,8 +576,21 @@ mod test {
 
         println!("rec3 = {:?}\n", rec3);
 
+        let points4: Vec<u64> = (1..=num_participants)
+            .map(|i| i as u64)
+            .collect::<Vec<_>>();
+
+        let evals4 = (0..points4.len())
+		    .map(|j| <E as PairingEngine>::pairing(sks[points4[j] as usize - 1], epoch_generator))   // random points won't work
+		    .collect::<Vec<_>>();
+
+        let rec4 = lagrange_interpolation_gt::<E>(&evals4, &points4, degree as u64).unwrap();
+
+        println!("rec4 = {:?}\n", rec3);
+
         assert_eq!(rec1, rec2);
         assert_eq!(rec2, rec3);
+        assert_eq!(rec3, rec4);
     }
 
 }
