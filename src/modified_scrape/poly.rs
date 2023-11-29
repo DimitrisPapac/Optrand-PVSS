@@ -541,8 +541,6 @@ mod test {
                 .unwrap()
                 .into_affine();
 
-        ///////////////////////////////
-
 	    // Create two sets of evaluation points
 	    let points1 = (1..=degree+1)           // 1, 2, 3, 4
 		    .map(|i| i as u64)
