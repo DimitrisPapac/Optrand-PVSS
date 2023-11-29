@@ -576,6 +576,7 @@ mod test {
 
         println!("rec3 = {:?}\n", rec3);
 
+	// Trial with a larger set of points
         let points4: Vec<u64> = (1..=num_participants)
             .map(|i| i as u64)
             .collect::<Vec<_>>();
