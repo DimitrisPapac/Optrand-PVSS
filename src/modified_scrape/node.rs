@@ -621,6 +621,4 @@ mod test {
 
         // println!("Node's aggregated_tx is now:\n\n{:?}", node_a.aggregator.aggregated_tx);
     }
-
-    
 }
