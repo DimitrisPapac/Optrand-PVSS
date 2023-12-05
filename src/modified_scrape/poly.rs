@@ -194,11 +194,11 @@ where
 
     for j in 0..=degree {
         // points must be a subset of {1, ..., n}
-        let x_j = Scalar::<E>::from(points[j as usize]); // <GT::<E> as Field>::BasePrimeField::from(points[j as usize]);  // 1
-        let mut prod = Scalar::<E>::one(); // <GT::<E> as Field>::BasePrimeField::one();  // 2
+        let x_j = Scalar::<E>::from(points[j as usize]);
+        let mut prod = Scalar::<E>::one();
         for k in 0..=degree {
             if j != k {
-                let x_k = Scalar::<E>::from(points[k as usize]); // <GT::<E> as Field>::BasePrimeField::from(points[k as usize]);  // 3
+                let x_k = Scalar::<E>::from(points[k as usize]);
                 prod *= x_k * (x_k - x_j).inverse().unwrap();
             }
         }
