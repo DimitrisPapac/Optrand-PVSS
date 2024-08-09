@@ -7,7 +7,7 @@ This library is released under the Apache v2 License (see License).
 **WARNING:** This is an academic proof-of-concept prototype, and in particular has not beed audited yet - please use it at your own risk.
 
 ## Installation
-Install a recent stable Rust toolchain using rustup.
+Install a recent stable Rust toolchain using `rustup`.
 
 ## Testing
 Run `cargo test` to test both simple signing and aggregation.
