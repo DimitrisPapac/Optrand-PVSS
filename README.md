@@ -10,4 +10,4 @@ This library is released under the Apache v2 License (see License).
 Install a recent stable Rust toolchain using rustup.
 
 ## Testing
-Run cargo test to test both simple signing and aggregation.
+Run `cargo test` to test both simple signing and aggregation.
